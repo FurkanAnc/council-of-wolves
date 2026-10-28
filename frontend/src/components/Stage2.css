@@ -1,0 +1,139 @@
+.stage2 {
+  padding-top: 12px;
+}
+
+.aggregate {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  margin-bottom: 18px;
+}
+
+.aggregate-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-bottom: 10px;
+}
+
+.aggregate-head h4,
+.evaluations-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.aggregate-note {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.aggregate-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.aggregate-row {
+  display: grid;
+  grid-template-columns: 18px minmax(120px, 210px) 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  padding: 2px 0;
+}
+
+.aggregate-pos {
+  color: var(--text-3);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.aggregate-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Single-series bar: one accent color, the name carries identity */
+.aggregate-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.aggregate-bar {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--accent);
+}
+
+.aggregate-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.aggregate-votes {
+  font-weight: 400;
+  color: var(--text-3);
+}
+
+.evaluations-title {
+  margin-bottom: 4px;
+}
+
+.stage-description {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.stage2 .member-panel {
+  padding-top: 14px;
+}
+
+.parsed-ranking {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 13px;
+}
+
+.parsed-ranking-title {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.parsed-ranking ol {
+  padding-left: 20px;
+  color: var(--text-2);
+}
+
+@media (max-width: 600px) {
+  .aggregate-row {
+    grid-template-columns: 18px 1fr auto;
+  }
+
+  .aggregate-track {
+    grid-column: 2 / -1;
+  }
+}
+
+.panel-badges {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
