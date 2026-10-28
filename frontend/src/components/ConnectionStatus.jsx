@@ -1,10 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
 import Icon from './Icon';
-import { api } from '../api';
+import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { parseDate } from '../utils/format';
 import './ConnectionStatus.css';
-
-const POLL_MS = 60000;
 
 // Each state has a label and an icon, so it never relies on color alone
 const STATES = {
@@ -17,48 +14,17 @@ const STATES = {
   backend_down: { label: 'Sunucu kapalı', tone: 'critical', icon: 'x' },
 };
 
-function useConnectionStatus(refreshSignal) {
-  const [status, setStatus] = useState({ status: 'checking' });
-
-  const check = useCallback(async (refresh = false) => {
-    setStatus((s) => (refresh ? { ...s, status: 'checking' } : s));
-    try {
-      setStatus(await api.getStatus(refresh));
-    } catch {
-      setStatus({
-        status: 'backend_down',
-        message: 'Uygulamanın sunucusuna (backend) bağlanılamadı. start.ps1 penceresi açık mı?',
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    const first = setTimeout(() => check(false), 0);
-    const timer = setInterval(() => check(false), POLL_MS);
-    return () => {
-      clearTimeout(first);
-      clearInterval(timer);
-    };
-  }, [check]);
-
-  // A failed council run asks for a fresh check
-  useEffect(() => {
-    if (!refreshSignal) return undefined;
-    const t = setTimeout(() => check(true), 0);
-    return () => clearTimeout(t);
-  }, [refreshSignal, check]);
-
-  return [status, check];
-}
-
 function timeLabel(iso) {
   const date = parseDate(iso);
   return date ? date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '';
 }
 
-/** Compact indicator for the sidebar footer; click to re-check. */
-export function ConnectionBadge({ refreshSignal }) {
-  const [status, check] = useConnectionStatus(refreshSignal);
+/**
+ * Indicator for the sidebar footer (or, compact, for the icon rail); click to re-check.
+ * The status comes from one shared useConnectionStatus in the sidebar.
+ */
+export function ConnectionBadge({ status, onCheck, compact = false }) {
+  const check = onCheck;
   const state = STATES[status.status] || STATES.error;
   const details = [
     status.message,
@@ -69,6 +35,26 @@ export function ConnectionBadge({ refreshSignal }) {
   ]
     .filter(Boolean)
     .join('\n');
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        className={`rail-btn connection-rail tone-${state.tone}`}
+        onClick={() => check(true)}
+        title={`${state.label}\n${details}`}
+        aria-label={state.label}
+      >
+        <span className="connection-dot" aria-hidden="true">
+          {status.status === 'checking' ? (
+            <span className="spinner tiny" />
+          ) : (
+            <Icon name={state.icon} size={10} strokeWidth={3.2} />
+          )}
+        </span>
+      </button>
+    );
+  }
 
   return (
     <button
@@ -91,7 +77,7 @@ export function ConnectionBadge({ refreshSignal }) {
 }
 
 /** Detailed card for the general settings tab. */
-export function ConnectionCard() {
+export function ConnectionCard({ onChange }) {
   const [status, check] = useConnectionStatus(0);
   const state = STATES[status.status] || STATES.error;
   return (
@@ -102,8 +88,13 @@ export function ConnectionCard() {
         </span>
         <span className="connection-card-title">{state.label}</span>
         <button className="btn btn-ghost connection-test" onClick={() => check(true)} disabled={status.status === 'checking'}>
-          <Icon name="refresh" size={14} /> Bağlantıyı test et
+          <Icon name="refresh" size={14} /> Test et
         </button>
+        {onChange && (
+          <button className="btn btn-primary connection-test" onClick={onChange}>
+            <Icon name="pencil" size={14} /> Bağlantıyı değiştir
+          </button>
+        )}
       </div>
       {status.message && status.status !== 'connected' && <p className="connection-message">{status.message}</p>}
       <dl className="connection-facts">

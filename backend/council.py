@@ -7,7 +7,7 @@ from collections import defaultdict
 from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 from .anthropic_client import query_members_parallel, query_model
-from .config import TITLE_MODEL, CHAIRMAN_MAX_TOKENS
+from . import connection
 from .settings import get_settings
 
 # (question, final answer) pairs from earlier turns of the conversation
@@ -411,7 +411,7 @@ Now write the final answer to the original question."""
         settings["chairman"]["model"],
         [{"role": "user", "content": chairman_prompt}],
         system=chairman_system_prompt(settings, debated=bool(debate)),
-        max_tokens=CHAIRMAN_MAX_TOKENS,
+        max_tokens=connection.current()["chairman_max_tokens"],
     )
 
     if response is None:
@@ -507,7 +507,7 @@ Question: {user_query}"""
 
     messages = [{"role": "user", "content": title_prompt}]
 
-    response = await query_model(TITLE_MODEL, messages, max_tokens=1024, timeout=60.0, effort="low")
+    response = await query_model(connection.title_model(), messages, max_tokens=1024, timeout=60.0, effort="low")
 
     if response is None or not response.get("content"):
         return ""

@@ -393,17 +393,6 @@
   }
 }
 
-/* Collapsed sidebar on wide screens: show the button that reopens it */
-@media (min-width: 861px) {
-  .app.sidebar-collapsed .menu-btn {
-    display: inline-flex;
-  }
-
-  .app.sidebar-collapsed .chat-header {
-    padding-left: 12px;
-  }
-}
-
 .welcome-logo {
   display: block;
   width: 96px;

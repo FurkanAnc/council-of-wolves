@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import Icon from './Icon';
 import { ConnectionBadge } from './ConnectionStatus';
+import { useConnectionStatus } from '../hooks/useConnectionStatus';
 import { dateGroup, shortDate, GROUP_ORDER } from '../utils/format';
 import './Sidebar.css';
 
@@ -124,8 +125,12 @@ export default function Sidebar({
   onOpenSettings,
   statusSignal,
   onClose,
+  onExpand,
+  onSearch,
 }) {
   const [query, setQuery] = useState('');
+  // One status check shared by the full sidebar and the icon rail
+  const [status, checkStatus] = useConnectionStatus(statusSignal);
 
   const groups = useMemo(() => {
     const q = query.trim().toLocaleLowerCase('tr');
@@ -142,6 +147,7 @@ export default function Sidebar({
   }, [conversations, query]);
 
   return (
+    <>
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="brand">
@@ -202,8 +208,30 @@ export default function Sidebar({
           <Icon name="sliders" size={16} />
           Ayarlar
         </button>
-        <ConnectionBadge refreshSignal={statusSignal} />
+        <ConnectionBadge status={status} onCheck={checkStatus} />
       </div>
     </aside>
+
+    {/* Collapsed sidebar on wide screens: a narrow rail with the main actions */}
+    <nav className="sidebar-rail" aria-label="Kısayollar">
+      <button className="rail-logo" onClick={onExpand} title="Paneli aç (Ctrl+B)" aria-label="Paneli aç">
+        <img src="/logo.png" alt="" />
+      </button>
+      <button className="rail-btn" onClick={onExpand} title="Paneli aç (Ctrl+B)" aria-label="Paneli aç">
+        <Icon name="panelRight" size={18} />
+      </button>
+      <button className="rail-btn rail-primary" onClick={onNewConversation} title="Yeni sohbet" aria-label="Yeni sohbet">
+        <Icon name="plus" size={18} strokeWidth={2.2} />
+      </button>
+      <button className="rail-btn" onClick={onSearch} title="Sohbetlerde ara (Ctrl+K)" aria-label="Sohbetlerde ara">
+        <Icon name="search" size={18} />
+      </button>
+      <div className="rail-spacer" />
+      <button className="rail-btn" onClick={onOpenSettings} title="Ayarlar" aria-label="Ayarlar">
+        <Icon name="sliders" size={18} />
+      </button>
+      <ConnectionBadge status={status} onCheck={checkStatus} compact />
+    </nav>
+    </>
   );
 }

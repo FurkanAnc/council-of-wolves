@@ -8,16 +8,13 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-# Credentials: ANTHROPIC_API_KEY for the Anthropic API, or ANTHROPIC_AUTH_TOKEN
-# (sent as a Bearer token) for Anthropic-compatible providers
+# Fallback credentials from the environment / .env. The connection saved from
+# the setup screen takes precedence (see backend/connection.py).
+# ANTHROPIC_API_KEY for the Anthropic API, or ANTHROPIC_AUTH_TOKEN (Bearer) for
+# Anthropic-compatible providers at ANTHROPIC_BASE_URL (e.g. https://platform.yeta.ai).
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY") or None
 ANTHROPIC_AUTH_TOKEN = os.getenv("ANTHROPIC_AUTH_TOKEN") or None
-HAS_CREDENTIALS = bool(ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN)
-
-# Optional Anthropic-compatible endpoint (e.g. https://platform.yeta.ai).
-# When set, Anthropic-only features (refusal fallback, effort) are not sent.
 ANTHROPIC_BASE_URL = os.getenv("ANTHROPIC_BASE_URL") or None
-COMPAT_MODE = ANTHROPIC_BASE_URL is not None and "api.anthropic.com" not in ANTHROPIC_BASE_URL
 
 # Model IDs (https://docs.claude.com/en/docs/about-claude/models).
 # ANTHROPIC_MODEL replaces both; OPUS_MODEL / SONNET_MODEL replace one each.
@@ -127,9 +124,7 @@ DEFAULT_SETTINGS = {
     "history_turns": 4,
 }
 
-# Token limits (thinking tokens count toward max_tokens, so leave headroom)
-MAX_TOKENS = int(os.getenv("MAX_TOKENS") or (8192 if COMPAT_MODE else 16000))  # stages 1, debate, 2
-CHAIRMAN_MAX_TOKENS = int(os.getenv("CHAIRMAN_MAX_TOKENS") or (8192 if COMPAT_MODE else 32000))  # stage 3
+# Token limits live in the connection (setup screen); thinking tokens count toward them
 REQUEST_TIMEOUT = 600.0      # seconds
 
 # Data directory for conversation storage (anchored to the project, not the cwd)
@@ -137,6 +132,11 @@ DATA_DIR = os.getenv("DATA_DIR") or str(PROJECT_ROOT / "data" / "conversations")
 
 # Editable council settings (written by the settings screen)
 SETTINGS_FILE = os.getenv("SETTINGS_FILE") or str(PROJECT_ROOT / "data" / "council.json")
+
+# Saved connection: encrypted API key and provider / model / token limits
+# (shared with start.ps1)
+KEY_FILE = os.getenv("KEY_FILE") or str(PROJECT_ROOT / "data" / "api-key.dat")
+CONNECTION_FILE = os.getenv("CONNECTION_FILE") or str(PROJECT_ROOT / "data" / "launch.json")
 
 # Backend address; 127.0.0.1 keeps it reachable from this computer only
 HOST = os.getenv("HOST") or "127.0.0.1"

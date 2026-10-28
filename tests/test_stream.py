@@ -5,13 +5,13 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import anthropic_client, council, main, storage
+from backend import connection, anthropic_client, council, main, storage
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(storage, "DATA_DIR", str(tmp_path))
-    monkeypatch.setattr(main, "HAS_CREDENTIALS", True)
+    monkeypatch.setattr(connection, "has_credentials", lambda: True)
 
     async def fake_query(model, messages, system=None, **kwargs):
         prompt = messages[-1]["content"]

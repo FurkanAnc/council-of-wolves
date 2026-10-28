@@ -4,7 +4,7 @@ import re
 
 import pytest
 
-from backend import anthropic_client, council
+from backend import anthropic_client, connection, council
 from backend.config import OPUS, SONNET
 from backend.settings import defaults
 
@@ -159,12 +159,12 @@ async def test_stage2_shuffles_presentation_order(fake_query, monkeypatch):
 # --- compat mode -------------------------------------------------------------
 
 def test_build_params_anthropic_includes_fallback(monkeypatch):
-    monkeypatch.setattr(anthropic_client, "COMPAT_MODE", False)
+    monkeypatch.setattr(connection, "current", lambda: {"compat": False})
     p = anthropic_client.build_params("m", [], "sys", 100, "low")
     assert p["fallbacks"] == "default" and p["betas"] and p["output_config"] == {"effort": "low"}
 
 
 def test_build_params_compat_skips_anthropic_only_fields(monkeypatch):
-    monkeypatch.setattr(anthropic_client, "COMPAT_MODE", True)
+    monkeypatch.setattr(connection, "current", lambda: {"compat": True})
     p = anthropic_client.build_params("m", [], "sys", 100, "low")
     assert p == {"model": "m", "max_tokens": 100, "messages": [], "system": "sys"}

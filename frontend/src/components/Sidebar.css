@@ -258,3 +258,67 @@
   height: 32px;
   flex-shrink: 0;
 }
+
+/* ---------- Icon rail (collapsed sidebar, wide screens only) ---------- */
+.sidebar-rail {
+  display: none;
+}
+
+@media (min-width: 861px) {
+  .app.sidebar-collapsed .sidebar-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 56px;
+    flex-shrink: 0;
+    height: 100%;
+    padding: 12px 0;
+    background: var(--surface-2);
+    border-right: 1px solid var(--border);
+    animation: fade-in 0.15s ease-out;
+  }
+}
+
+.rail-logo {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 6px;
+  border-radius: var(--radius-sm);
+}
+
+.rail-logo img {
+  width: 100%;
+  height: 100%;
+}
+
+.rail-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  transition: background 0.12s, color 0.12s;
+}
+
+.rail-btn:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.rail-primary {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.rail-primary:hover {
+  background: var(--accent-hover);
+  color: var(--accent-text);
+}
+
+.rail-spacer {
+  flex: 1;
+}

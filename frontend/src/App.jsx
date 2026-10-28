@@ -2,12 +2,22 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import SettingsModal from './components/SettingsModal';
+import SetupScreen from './components/SetupScreen';
 import { api } from './api';
 import { setCouncilColors } from './utils/labels';
 import './App.css';
 
 const THEME_KEY = 'council-theme';
 const SIDEBAR_KEY = 'council-sidebar-collapsed';
+const WELCOME_KEY = 'council-show-welcome';
+
+function readShowWelcome() {
+  try {
+    return localStorage.getItem(WELCOME_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
 const NARROW_QUERY = '(max-width: 860px)';
 
 function readCollapsed() {
@@ -51,6 +61,24 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readCollapsed);
   const [notice, setNotice] = useState(null);
+  // Saved connection: null while loading; { configured: false } shows the setup screen
+  const [setup, setSetup] = useState(null);
+  // Backend not answering yet: retried for a while (it may still be starting)
+  const [backendDown, setBackendDown] = useState(false);
+  const [startupTries, setStartupTries] = useState(0);
+  const [editingConnection, setEditingConnection] = useState(false);
+  // Opening page on every launch (Settings > Genel can turn it off)
+  const [showWelcomePref, setShowWelcomePref] = useState(readShowWelcome);
+  const [welcomeOpen, setWelcomeOpen] = useState(readShowWelcome);
+
+  const changeShowWelcome = (on) => {
+    setShowWelcomePref(on);
+    try {
+      localStorage.setItem(WELCOME_KEY, on ? '1' : '0');
+    } catch {
+      // Storage unavailable: the choice applies to this visit only
+    }
+  };
   const [settingsTab, setSettingsTab] = useState(null); // open settings tab, or null
   // Bumped after a failed council run so the connection badge re-checks
   const [statusSignal, setStatusSignal] = useState(0);
@@ -105,6 +133,12 @@ function App() {
     else setSidebarCollapsed(false);
   }, []);
 
+  const openSearch = useCallback(() => {
+    openSidebar();
+    // Let a just-reopened sidebar render before focusing (timer, not rAF: works in background tabs too)
+    setTimeout(() => document.getElementById('conversation-search')?.focus(), 30);
+  }, [openSidebar]);
+
   const closeSidebar = () => {
     if (isNarrow()) setSidebarOpen(false);
     else setSidebarCollapsed(true);
@@ -116,9 +150,7 @@ function App() {
       const key = e.key.toLowerCase();
       if ((e.ctrlKey || e.metaKey) && key === 'k') {
         e.preventDefault();
-        openSidebar();
-        // Wait a frame so a just-reopened sidebar is visible before focusing
-        requestAnimationFrame(() => document.getElementById('conversation-search')?.focus());
+        openSearch();
       } else if ((e.ctrlKey || e.metaKey) && key === 'b') {
         e.preventDefault();
         if (isNarrow()) setSidebarOpen((o) => !o);
@@ -129,7 +161,7 @@ function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [openSidebar]);
+  }, [openSearch]);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -159,10 +191,62 @@ function App() {
     }
   }, []);
 
+  const loadSetup = useCallback(async () => {
+    try {
+      setSetup(await api.getSetup());
+      setBackendDown(false);
+      setStartupTries(0);
+    } catch (error) {
+      console.error('Failed to load setup:', error);
+      setBackendDown(true);
+      setStartupTries((n) => n + 1);
+    }
+  }, []);
+
+  const STARTUP_RETRIES = 15; // x 2 s
+
+  // While the backend is still starting, keep retrying; then load everything it failed to give
+  useEffect(() => {
+    if (!backendDown || startupTries >= STARTUP_RETRIES) return undefined;
+    const timer = setTimeout(async () => {
+      await loadSetup();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [backendDown, startupTries, loadSetup]);
+
+  useEffect(() => {
+    if (setup && !backendDown) {
+      loadConversations();
+      loadCouncil();
+    }
+  }, [setup?.configured, backendDown]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     loadConversations();
     loadCouncil();
-  }, [loadConversations, loadCouncil]);
+    loadSetup();
+  }, [loadConversations, loadCouncil, loadSetup]);
+
+  // After a connection is saved: models (and so the council) may have changed
+  const handleConnectionSaved = (info) => {
+    setWelcomeOpen(false);
+    setSetup(info);
+    setEditingConnection(false);
+    loadCouncil();
+    setStatusSignal((n) => n + 1);
+  };
+
+  const handleForgetConnection = async () => {
+    if (!window.confirm('Kayıtlı API anahtarı silinsin mi? Kurulum ekranı yeniden açılacak.')) return;
+    try {
+      setSetup(await api.forgetSetup());
+      setEditingConnection(false);
+      setSettingsTab(null);
+      setStatusSignal((n) => n + 1);
+    } catch (error) {
+      showNotice(error.message);
+    }
+  };
 
   const selectConversation = (id) => {
     currentIdRef.current = id;
@@ -362,6 +446,58 @@ function App() {
     }
   };
 
+  if (!setup && (!backendDown || startupTries < STARTUP_RETRIES)) {
+    return (
+      <div className="startup-error">
+        <img src="/logo.png" alt="" />
+        <h1>Sunucu başlatılıyor…</h1>
+        <p>
+          <span className="spinner" /> Bu ilk açılışta birkaç saniye sürebilir.
+        </p>
+      </div>
+    );
+  }
+
+  if (backendDown && !setup) {
+    return (
+      <div className="startup-error">
+        <img src="/logo.png" alt="" />
+        <h1>Sunucuya bağlanılamadı</h1>
+        <p>Uygulamanın sunucusu çalışmıyor. Konsey'i Baslat.bat penceresinin açık olduğundan emin olun.</p>
+        <button
+          className="btn btn-primary"
+          onClick={() => {
+            setStartupTries(0);
+            loadSetup();
+          }}
+        >
+          Tekrar dene
+        </button>
+      </div>
+    );
+  }
+
+  // First launch: nothing saved yet, so set up the connection before anything else
+  if (setup && !setup.configured) {
+    return <SetupScreen existing={setup} council={council} onDone={handleConnectionSaved} />;
+  }
+
+  if (setup && welcomeOpen) {
+    return (
+      <SetupScreen
+        welcome
+        existing={setup}
+        council={council}
+        onEnter={() => setWelcomeOpen(false)}
+        onDone={(info) => {
+          handleConnectionSaved(info);
+          setWelcomeOpen(false);
+        }}
+        onForget={handleForgetConnection}
+      />
+    );
+  }
+
   return (
     <div className={`app ${sidebarOpen ? 'sidebar-open' : ''} ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <Sidebar
@@ -375,6 +511,8 @@ function App() {
         onOpenSettings={() => setSettingsTab('general')}
         statusSignal={statusSignal}
         onClose={closeSidebar}
+        onExpand={openSidebar}
+        onSearch={openSearch}
       />
       <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
       <ChatInterface
@@ -396,10 +534,28 @@ function App() {
           theme={theme}
           onThemeChange={setTheme}
           onClose={() => setSettingsTab(null)}
+          showWelcome={showWelcomePref}
+          onShowWelcomeChange={changeShowWelcome}
+          onChangeConnection={() => {
+            setSettingsTab(null);
+            setEditingConnection(true);
+          }}
           onSaved={() => {
             loadCouncil();
             showNotice('Konsey ayarları kaydedildi. Yeni sorular bu ayarlarla cevaplanacak.');
           }}
+        />
+      )}
+      {editingConnection && setup && (
+        <SetupScreen
+          existing={setup}
+          council={council}
+          onDone={(info) => {
+            handleConnectionSaved(info);
+            showNotice('Bağlantı kaydedildi.');
+          }}
+          onCancel={() => setEditingConnection(false)}
+          onForget={handleForgetConnection}
         />
       )}
       {notice && (

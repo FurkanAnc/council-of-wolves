@@ -28,6 +28,42 @@ export const api = {
   },
 
   /**
+   * Saved connection (provider, model, limits, key hint; never the key).
+   */
+  async getSetup() {
+    const response = await fetch(`${API_BASE}/api/setup`);
+    if (!response.ok) {
+      throw new Error('Failed to load setup');
+    }
+    return response.json();
+  },
+
+  /**
+   * Test a connection and save it if it works. The key only travels to the local backend.
+   */
+  async saveSetup(setup) {
+    const response = await fetch(`${API_BASE}/api/setup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(setup),
+    });
+    if (!response.ok) {
+      throw new Error(await errorMessage(response, 'Bağlantı kaydedilemedi'));
+    }
+    return response.json();
+  },
+
+  async forgetSetup() {
+    const response = await fetch(`${API_BASE}/api/setup`, { method: 'DELETE' });
+    if (!response.ok) {
+      throw new Error(await errorMessage(response, 'Anahtar silinemedi'));
+    }
+    return response.json();
+  },
+
+  /**
    * API connection status (cached by the backend unless refresh is true).
    */
   async getStatus(refresh = false) {

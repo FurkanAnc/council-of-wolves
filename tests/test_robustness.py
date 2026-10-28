@@ -6,7 +6,7 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import anthropic_client, council, main, storage
+from backend import connection, anthropic_client, council, main, storage
 
 
 @pytest.fixture
@@ -56,7 +56,7 @@ def test_writes_leave_no_temp_files(client, data_dir):
 
 
 def test_empty_message_rejected(client, monkeypatch):
-    monkeypatch.setattr(main, "HAS_CREDENTIALS", True)
+    monkeypatch.setattr(connection, "has_credentials", lambda: True)
     conv = client.post("/api/conversations", json={}).json()
     res = client.post(f"/api/conversations/{conv['id']}/message/stream", json={"content": "   "})
     assert res.status_code == 400

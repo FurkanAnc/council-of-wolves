@@ -7,7 +7,7 @@ import re
 import unicodedata
 from typing import Any, Dict, List
 
-from . import config
+from . import config, connection
 
 LIMITS = {
     "min_members": 2,
@@ -27,7 +27,14 @@ class SettingsError(ValueError):
 
 
 def defaults() -> Dict[str, Any]:
-    return copy.deepcopy(config.DEFAULT_SETTINGS)
+    """Default council; with a model chosen at setup, every member uses it."""
+    data = copy.deepcopy(config.DEFAULT_SETTINGS)
+    model = connection.current()["model"]
+    if model:
+        for member in data["members"]:
+            member["model"] = model
+        data["chairman"]["model"] = model
+    return data
 
 
 def settings_path() -> str:
@@ -187,6 +194,6 @@ def validate(data: Any) -> Dict[str, Any]:
 
 def model_suggestions(settings: Dict[str, Any]) -> List[str]:
     """Model ids worth offering in the settings form."""
-    models = [config.OPUS, config.SONNET, config.TITLE_MODEL]
+    models = [connection.current()["model"], config.OPUS, config.SONNET, config.TITLE_MODEL]
     models += [m["model"] for m in settings["members"]] + [settings["chairman"]["model"]]
     return list(dict.fromkeys(m for m in models if m))

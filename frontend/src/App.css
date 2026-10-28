@@ -50,3 +50,34 @@
     background: rgba(0, 0, 0, 0.35);
   }
 }
+
+.startup-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100%;
+  padding: 24px;
+  text-align: center;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.startup-error img {
+  width: 80px;
+  height: 80px;
+  opacity: 0.85;
+}
+
+.startup-error h1 {
+  font-size: 20px;
+}
+
+.startup-error p {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 420px;
+  color: var(--text-2);
+}

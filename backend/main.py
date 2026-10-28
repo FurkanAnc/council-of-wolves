@@ -10,10 +10,9 @@ import json
 import time
 import asyncio
 from datetime import datetime, timezone
-from urllib.parse import urlparse
 
-from . import storage, anthropic_client, settings as council_settings
-from .config import ANTHROPIC_BASE_URL, HAS_CREDENTIALS, HOST, PORT
+from . import storage, anthropic_client, connection, settings as council_settings
+from .config import HOST, PORT
 from .council import (
     build_history, run_full_council, generate_conversation_title, stage1_collect_responses,
     run_debate, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings,
@@ -22,12 +21,12 @@ from .council import (
 
 app = FastAPI(title="Claude Council API")
 
-MISSING_KEY_MESSAGE = "ANTHROPIC_API_KEY veya ANTHROPIC_AUTH_TOKEN tanımlı değil. Proje kökündeki .env dosyasına ekleyin."
+MISSING_KEY_MESSAGE = "API anahtarı tanımlı değil. Uygulamadaki kurulum ekranından ekleyin."
 
 
 def require_api_key():
     """Fail fast with a clear message when the API key is missing."""
-    if not HAS_CREDENTIALS:
+    if not connection.has_credentials():
         raise HTTPException(status_code=500, detail=MISSING_KEY_MESSAGE)
 
 # Enable CORS for local development
@@ -144,12 +143,6 @@ STATUS_TTL_SECONDS = 60
 _status_cache: Dict[str, Any] = {"result": None, "at": 0.0}
 
 
-def _provider_label() -> str:
-    if not ANTHROPIC_BASE_URL:
-        return "Anthropic API"
-    return urlparse(ANTHROPIC_BASE_URL).hostname or ANTHROPIC_BASE_URL
-
-
 @app.get("/api/status")
 async def get_status(refresh: bool = False):
     """API connection status (cached for a minute unless refresh=true)."""
@@ -162,12 +155,67 @@ async def get_status(refresh: bool = False):
     probe_model = settings["members"][0]["model"]
     result = {
         **await anthropic_client.check_connection(probe_model),
-        "provider": _provider_label(),
+        "provider": connection.provider_label(),
         "model": probe_model,
         "checked_at": datetime.now(timezone.utc).isoformat(),
     }
     _status_cache.update(result=result, at=now)
     return result
+
+
+class SetupRequest(BaseModel):
+    """Connection from the setup screen. An empty api_key keeps the saved key."""
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+    max_tokens: Optional[int] = None
+    chairman_max_tokens: Optional[int] = None
+
+
+@app.get("/api/setup")
+async def get_setup():
+    """Whether a connection is configured (the key itself is never returned)."""
+    return connection.public_info()
+
+
+@app.post("/api/setup")
+async def save_setup(request: SetupRequest):
+    """Test a connection and, if it works, save it (key encrypted) and use it right away."""
+    base_url = (request.base_url or "").strip().rstrip("/") or None
+    if base_url and not base_url.startswith(("https://", "http://")):
+        raise HTTPException(status_code=400, detail="Sağlayıcı adresi https:// ile başlamalı.")
+    model = (request.model or "").strip() or None
+    for name, value in (("Max tokens", request.max_tokens), ("Başkan max tokens", request.chairman_max_tokens)):
+        if value is not None and not 256 <= value <= 200000:
+            raise HTTPException(status_code=400, detail=f"{name} 256 ile 200000 arasında olmalı.")
+
+    typed_key = (request.api_key or "").strip()
+    # No key typed: keep the saved key, or adopt the one from the environment
+    key = typed_key or connection.saved_key() or connection.env_key() or ""
+    if not key:
+        raise HTTPException(status_code=400, detail="API anahtarını girin.")
+
+    candidate = connection.build_state(base_url, key, model, request.max_tokens, request.chairman_max_tokens)
+    probe_model = model or council_settings.get_settings()["members"][0]["model"]
+    result = await anthropic_client.check_connection(probe_model, candidate)
+    if result["status"] != "connected":
+        raise HTTPException(status_code=400, detail=result["message"])
+
+    # A new or environment key gets stored encrypted; an already saved one is kept as is
+    connection.save(
+        base_url, typed_key or (None if connection.saved_key() else key), model,
+        request.max_tokens, request.chairman_max_tokens,
+    )
+    _status_cache.update(result=None, at=0.0)
+    return {**connection.public_info(), "latency_ms": result.get("latency_ms")}
+
+
+@app.delete("/api/setup")
+async def forget_setup():
+    """Delete the saved key and connection."""
+    connection.forget()
+    _status_cache.update(result=None, at=0.0)
+    return connection.public_info()
 
 
 @app.get("/api/council")
@@ -401,6 +449,6 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
 
 if __name__ == "__main__":
     import uvicorn
-    if not HAS_CREDENTIALS:
-        print(f"UYARI: {MISSING_KEY_MESSAGE}")
+    if not connection.has_credentials():
+        print("API anahtarı yok: tarayıcıda açılan kurulum ekranından ekleyin.")
     uvicorn.run(app, host=HOST, port=PORT)

@@ -50,31 +50,15 @@ uv sync
 cd frontend && npm install && cd ..
 ```
 
-### 2. Set your API key
+### 2. Run
+
+On Windows, double-click a launcher that runs `start.ps1`, or:
 
 ```bash
-cp .env.example .env
+powershell -ExecutionPolicy Bypass -File .\start.ps1
 ```
 
-Put your key from [console.anthropic.com](https://console.anthropic.com/) in `.env`:
-
-```
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-### Using an Anthropic-compatible provider
-
-Any provider that speaks the Anthropic Messages API can be used instead. Put this in `.env` (and leave `ANTHROPIC_API_KEY` out):
-
-```
-ANTHROPIC_BASE_URL=https://platform.yeta.ai
-ANTHROPIC_AUTH_TOKEN=<your-provider-key>
-ANTHROPIC_MODEL=koray-1.0
-```
-
-`ANTHROPIC_MODEL` is used by every member; set `OPUS_MODEL` / `SONNET_MODEL` instead to give the two groups different models. With a custom base URL, Anthropic-only features (refusal fallback, effort setting) are not sent and token limits default to 8192 (`MAX_TOKENS`, `CHAIRMAN_MAX_TOKENS` to change). Your questions and answers go to that provider, and its prices apply.
-
-### 3. Run
+On Linux/macOS:
 
 ```bash
 ./start.sh
@@ -88,6 +72,18 @@ cd frontend && npm run dev         # terminal 2
 ```
 
 Then open http://localhost:5173.
+
+### 3. Connect a provider (first launch)
+
+On first launch the app opens a **setup screen**: pick a provider (yeta.ai, Anthropic, or any Anthropic-compatible URL), paste your API key, optionally choose a model and token limits. The connection is tested before it is saved, and applied without a restart.
+
+- The key is stored in `data/api-key.dat`, encrypted with Windows DPAPI (only your Windows user on this computer can read it; on other systems it is a file readable only by you). It is never sent back to the browser, only its last 4 characters.
+- Provider, model and token limits go to `data/launch.json`. A model chosen here is used by every member of the default council.
+- Change it later in **Ayarlar → Genel → Bağlantıyı değiştir**, or run `start.ps1 -Reset` to start over.
+
+With a custom provider, Anthropic-only features (refusal fallback, effort setting) are not sent and token limits default to 8192. Your questions and answers go to that provider, and its prices apply.
+
+Environment variables still work as a fallback when nothing has been saved (`ANTHROPIC_API_KEY`, or `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN`, plus `ANTHROPIC_MODEL`, `MAX_TOKENS`, `CHAIRMAN_MAX_TOKENS`; see `.env.example`).
 
 ## Customizing the council
 

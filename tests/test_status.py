@@ -39,8 +39,8 @@ class _FakeClient:
 
 
 @pytest.fixture
-def credentials(monkeypatch):
-    monkeypatch.setattr(anthropic_client, "HAS_CREDENTIALS", True)
+def credentials(connected):
+    return connected
 
 
 async def test_connected_via_models_list(credentials, monkeypatch):
@@ -69,15 +69,14 @@ async def test_failure_kinds(credentials, monkeypatch, exc, status):
     assert (await anthropic_client.check_connection("m"))["status"] == status
 
 
-async def test_no_key(monkeypatch):
-    monkeypatch.setattr(anthropic_client, "HAS_CREDENTIALS", False)
+async def test_no_key():
     assert (await anthropic_client.check_connection("m"))["status"] == "no_key"
 
 
 def test_status_endpoint_caches_until_refresh(monkeypatch):
     calls = []
 
-    async def fake_check(model):
+    async def fake_check(model, state=None):
         calls.append(model)
         return {"status": "connected", "message": "ok", "latency_ms": 5}
 

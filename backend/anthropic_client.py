@@ -6,16 +6,15 @@ from typing import List, Dict, Any, Optional
 
 import anthropic
 
-from .config import (
-    ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, COMPAT_MODE,
-    HAS_CREDENTIALS, MAX_TOKENS, REQUEST_TIMEOUT,
-)
+from . import connection
+from .config import REQUEST_TIMEOUT
 
 # Server-side refusal fallback: if a safety classifier declines a request,
 # the API reroutes it to a suitable fallback model instead of failing.
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
-_client: Optional[anthropic.AsyncAnthropic] = None
+# Client for the current connection; rebuilt when the connection changes
+_client: Dict[str, Any] = {"state": None, "client": None}
 
 # Most recent API error, surfaced to the UI when every member fails
 last_error: Optional[str] = None
@@ -27,22 +26,26 @@ def _fail(message: str) -> None:
     print(message, flush=True)
 
 
+def make_client(state: Dict[str, Any]) -> anthropic.AsyncAnthropic:
+    """Client for a connection state (see connection.current())."""
+    if not (state["api_key"] or state["auth_token"]):
+        raise RuntimeError("API anahtarı tanımlı değil. Uygulamadaki kurulum ekranından ekleyin.")
+    return anthropic.AsyncAnthropic(
+        # Exactly one credential is passed; the SDK then ignores ANTHROPIC_* environment variables.
+        # (Never api_key="": it would send an empty Authorization header over the token.)
+        api_key=state["api_key"],
+        auth_token=state["auth_token"],
+        base_url=state["base_url"] or "https://api.anthropic.com",
+        max_retries=3,
+    )
+
+
 def get_client() -> anthropic.AsyncAnthropic:
-    """Create the shared async client on first use."""
-    global _client
-    if _client is None:
-        if not HAS_CREDENTIALS:
-            raise RuntimeError(
-                "ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN is not set. "
-                "Add it to the .env file in the project root."
-            )
-        _client = anthropic.AsyncAnthropic(
-            api_key=ANTHROPIC_API_KEY,
-            auth_token=None if ANTHROPIC_API_KEY else ANTHROPIC_AUTH_TOKEN,
-            base_url=ANTHROPIC_BASE_URL,
-            max_retries=3,
-        )
-    return _client
+    """Shared async client for the current connection."""
+    state = connection.current()
+    if _client["state"] is not state:
+        _client.update(state=state, client=make_client(state))
+    return _client["client"]
 
 
 def build_params(
@@ -60,7 +63,7 @@ def build_params(
     }
     if system:
         params["system"] = system
-    if not COMPAT_MODE:
+    if not connection.current()["compat"]:
         params["betas"] = [FALLBACK_BETA]
         params["fallbacks"] = "default"
         if effort:
@@ -72,7 +75,7 @@ async def query_model(
     model: str,
     messages: List[Dict[str, str]],
     system: Optional[str] = None,
-    max_tokens: int = MAX_TOKENS,
+    max_tokens: Optional[int] = None,
     timeout: float = REQUEST_TIMEOUT,
     effort: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
@@ -90,12 +93,12 @@ async def query_model(
     Returns:
         Response dict with 'content', 'usage' and 'truncated', or None if failed
     """
-    params = build_params(model, messages, system, max_tokens, effort)
+    params = build_params(model, messages, system, max_tokens or connection.current()["max_tokens"], effort)
 
     try:
         client = get_client().with_options(timeout=timeout)
         # Compat providers get the plain endpoint (no anthropic-beta header)
-        messages_api = client.messages if COMPAT_MODE else client.beta.messages
+        messages_api = client.messages if connection.current()["compat"] else client.beta.messages
         # Stream to avoid HTTP timeouts on long generations
         async with messages_api.stream(**params) as stream:
             response = await stream.get_final_message()
@@ -165,7 +168,7 @@ async def query_members_parallel(
     return {member["id"]: response for member, response in zip(members, responses)}
 
 
-async def check_connection(probe_model: str) -> Dict[str, Any]:
+async def check_connection(probe_model: str, state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Verify that the API is reachable and the key is accepted.
 
@@ -174,12 +177,15 @@ async def check_connection(probe_model: str) -> Dict[str, Any]:
 
     Returns:
         Dict with 'status' (connected | no_key | auth_error | unreachable | error),
-        'message' and, when connected, 'latency_ms'
+        'message' and, when connected, 'latency_ms'.
+        `state` tests a candidate connection instead of the current one.
     """
-    if not HAS_CREDENTIALS:
+    state = state or connection.current()
+    if not (state["api_key"] or state["auth_token"]):
         return {"status": "no_key", "message": "API anahtarı tanımlı değil."}
 
-    client = get_client().with_options(timeout=15.0, max_retries=0)
+    base = make_client(state) if state is not connection.current() else get_client()
+    client = base.with_options(timeout=15.0, max_retries=0)
     started = time.monotonic()
     try:
         try:

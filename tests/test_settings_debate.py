@@ -5,7 +5,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import anthropic_client, council, main, settings, storage
+from backend import connection, anthropic_client, council, main, settings, storage
 
 
 def _custom(**overrides):
@@ -149,7 +149,7 @@ def fake_model(monkeypatch):
 
     monkeypatch.setattr(anthropic_client, "query_model", fake_query)
     monkeypatch.setattr(council, "query_model", fake_query)
-    monkeypatch.setattr(main, "HAS_CREDENTIALS", True)
+    monkeypatch.setattr(connection, "has_credentials", lambda: True)
     return calls
 
 

@@ -171,7 +171,16 @@ function MemberCard({ member, index, expanded, onToggle, onChange, onRemove, can
   );
 }
 
-export default function SettingsModal({ onClose, onSaved, theme, onThemeChange, initialTab = 'general' }) {
+export default function SettingsModal({
+  onClose,
+  onSaved,
+  theme,
+  onThemeChange,
+  onChangeConnection,
+  showWelcome,
+  onShowWelcomeChange,
+  initialTab = 'general',
+}) {
   const [data, setData] = useState(null);
   const [original, setOriginal] = useState(null);
   const [meta, setMeta] = useState(null); // defaults, suggestions, limits
@@ -343,15 +352,27 @@ export default function SettingsModal({ onClose, onSaved, theme, onThemeChange, 
                     </div>
                   </div>
 
+                  <label className="setting-block setting-toggle">
+                    <span className="setting-head">
+                      <span className="setting-title">Açılışta karşılama ekranı</span>
+                      <span className="setting-desc">Uygulama her açıldığında önce karşılama sayfası gösterilir.</span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      className="switch"
+                      checked={showWelcome}
+                      onChange={(e) => onShowWelcomeChange(e.target.checked)}
+                    />
+                  </label>
+
                   <div className="setting-block">
                     <div className="setting-head">
                       <span className="setting-title">API bağlantısı</span>
                       <span className="setting-desc">
-                        Anahtarın geçerli olup olmadığını ve sağlayıcıya ulaşılıp ulaşılamadığını kontrol eder.
-                        Anahtar, uygulamayı başlatırken girilir.
+                        Sağlayıcı, API anahtarı, model ve token limitleri. Anahtar bu bilgisayarda şifreli saklanır.
                       </span>
                     </div>
-                    <ConnectionCard />
+                    <ConnectionCard onChange={onChangeConnection} />
                   </div>
                 </div>
               )}
