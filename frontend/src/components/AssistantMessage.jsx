@@ -6,6 +6,7 @@ import Stage3 from './Stage3';
 import Debate from './Debate';
 import { formatDuration, formatTokens } from '../utils/format';
 import { memberColor, memberInitial, memberName } from '../utils/labels';
+import { t, locale } from '../i18n';
 import './AssistantMessage.css';
 
 function hasDebate(msg) {
@@ -13,13 +14,13 @@ function hasDebate(msg) {
 }
 
 function steps(msg) {
-  const list = [{ key: 'stage1', label: 'Üye cevapları' }];
+  const list = [{ key: 'stage1', label: t('step.answers') }];
   if (hasDebate(msg)) {
     const planned = msg.plannedDebate || msg.debate?.length || 0;
     const progress = msg.loading?.debate && planned > 1 ? ` ${Math.min((msg.debate?.length || 0) + 1, planned)}/${planned}` : '';
-    list.push({ key: 'debate', label: `Tartışma${progress}` });
+    list.push({ key: 'debate', label: `${t('step.debate')}${progress}` });
   }
-  list.push({ key: 'stage2', label: 'Çapraz değerlendirme' }, { key: 'stage3', label: 'Son cevap' });
+  list.push({ key: 'stage2', label: t('step.review') }, { key: 'stage3', label: t('step.final') });
   return list;
 }
 
@@ -44,10 +45,10 @@ function Stepper({ msg }) {
   const elapsed = (msg.finishedAt || now) - msg.startedAt;
 
   let summary;
-  if (msg.stopped) summary = 'Durduruldu';
-  else if (msg.error) summary = 'Hata';
-  else if (running) summary = 'Konsey çalışıyor';
-  else summary = 'Tamamlandı';
+  if (msg.stopped) summary = t('step.stopped');
+  else if (msg.error) summary = t('step.error');
+  else if (running) summary = t('step.running');
+  else summary = t('step.done');
 
   return (
     <div className={`stepper ${running ? 'running' : ''}`}>
@@ -110,7 +111,7 @@ function RetryButton({ onRetry }) {
   return (
     <button className="btn btn-ghost retry-btn" onClick={onRetry}>
       <Icon name="refresh" size={15} />
-      Tekrar dene
+      {t('common.retry')}
     </button>
   );
 }
@@ -124,9 +125,12 @@ function AnswerMeta({ metadata, startedAt, finishedAt }) {
       {seconds != null && <span>{formatDuration(seconds * 1000)}</span>}
       {usage && (
         <span
-          title={`${usage.input_tokens.toLocaleString('tr-TR')} giriş, ${usage.output_tokens.toLocaleString('tr-TR')} çıkış tokeni (tüm çağrılar, başlık hariç)`}
+          title={t('meta.tokensHint', {
+            input: usage.input_tokens.toLocaleString(locale()),
+            output: usage.output_tokens.toLocaleString(locale()),
+          })}
         >
-          {formatTokens(usage.input_tokens)} giriş · {formatTokens(usage.output_tokens)} çıkış token
+          {t('meta.tokens', { input: formatTokens(usage.input_tokens), output: formatTokens(usage.output_tokens) })}
         </span>
       )}
     </div>
@@ -148,7 +152,7 @@ export default function AssistantMessage({ msg, onRetry }) {
         <div className="answer-error">
           <Icon name="alert" size={18} />
           <div>
-            <strong>Konsey cevap veremedi.</strong>
+            <strong>{t('answer.failed')}</strong>
             <div className="answer-error-detail">{msg.error}</div>
           </div>
         </div>
@@ -171,23 +175,25 @@ export default function AssistantMessage({ msg, onRetry }) {
         <div className="answer-error">
           <Icon name="alert" size={18} />
           <div>
-            <strong>Bir hata oluştu.</strong>
+            <strong>{t('answer.error')}</strong>
             <div className="answer-error-detail">{msg.error}</div>
           </div>
         </div>
       )}
 
-      {msg.stopped && <div className="answer-note">Bu cevap durduruldu.</div>}
+      {msg.stopped && <div className="answer-note">{t('answer.stopped')}</div>}
 
       {(msg.error || msg.stopped || finalFailed) && <RetryButton onRetry={onRetry} />}
 
       {msg.stage1 && msg.stage1.length > 0 && (
         <Section
-          title="Üye cevapları"
+          title={t('stage1.title')}
           summary={
             <>
               <AvatarStack items={msg.stage1} />
-              {failed.length > 0 ? `${msg.stage1.length}/${total} üye` : `${msg.stage1.length} üye`}
+              {failed.length > 0
+                ? t('answer.membersOf', { n: msg.stage1.length, total })
+                : t('answer.members', { n: msg.stage1.length })}
             </>
           }
           defaultOpen={live && !msg.stage3 && !(msg.plannedDebate > 0)}
@@ -195,7 +201,7 @@ export default function AssistantMessage({ msg, onRetry }) {
           {failed.length > 0 && (
             <div className="answer-note failed-note">
               <Icon name="alert" size={14} />
-              {failed.join(', ')} cevap veremedi.
+              {t('answer.noReply', { names: failed.join(', ') })}
             </div>
           )}
           <Stage1 responses={msg.stage1} />
@@ -204,11 +210,14 @@ export default function AssistantMessage({ msg, onRetry }) {
 
       {(msg.debate?.length > 0 || msg.loading?.debate) && (
         <Section
-          title="Konsey tartışması"
+          title={t('debate.title')}
           summary={
             msg.debate?.length
-              ? `${msg.debate.length} tur · ${msg.debate.reduce((n, r) => n + r.length, 0)} mesaj`
-              : 'Başlıyor…'
+              ? t('debate.summary', {
+                  rounds: msg.debate.length,
+                  messages: msg.debate.reduce((n, r) => n + r.length, 0),
+                })
+              : t('debate.starting')
           }
           defaultOpen={live}
         >
@@ -223,8 +232,8 @@ export default function AssistantMessage({ msg, onRetry }) {
 
       {msg.stage2 && msg.stage2.length > 0 && (
         <Section
-          title="Çapraz değerlendirme"
-          summary={top ? `En iyi bulunan: ${memberName(top)}` : `${msg.stage2.length} değerlendirme`}
+          title={t('step.review')}
+          summary={top ? t('stage2.best', { name: memberName(top) }) : t('stage2.count', { n: msg.stage2.length })}
           defaultOpen={false}
         >
           <Stage2

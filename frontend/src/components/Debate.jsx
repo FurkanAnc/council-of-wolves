@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Markdown from './Markdown';
 import { TruncatedBadge } from './Stage1';
 import { memberColor, memberInitial, memberName, shortModel } from '../utils/labels';
+import { t } from '../i18n';
 import './Debate.css';
 
 const PREVIEW_CHARS = 320;
@@ -31,7 +32,7 @@ function ChatMessage({ item, text, collapsible }) {
           <Markdown>{open || !long ? text : preview(text)}</Markdown>
           {long && (
             <button className="chat-more" onClick={() => setOpen((o) => !o)}>
-              {open ? 'Kısalt' : 'Devamını göster'}
+              {open ? t('debate.less') : t('debate.more')}
             </button>
           )}
         </div>
@@ -47,7 +48,7 @@ export default function Debate({ openings, rounds, plannedRounds, loading }) {
       {openings?.length > 0 && (
         <section className="debate-round">
           <div className="round-label">
-            <span>Açılış konuşmaları</span>
+            <span>{t('debate.openings')}</span>
           </div>
           {openings.map((o, i) => (
             <ChatMessage key={`open-${o.member_id || i}`} item={o} text={o.response} collapsible />
@@ -58,7 +59,7 @@ export default function Debate({ openings, rounds, plannedRounds, loading }) {
       {(rounds || []).map((round, r) => (
         <section className="debate-round" key={r}>
           <div className="round-label">
-            <span>{r + 1}. tur</span>
+            <span>{t('debate.round', { n: r + 1 })}</span>
           </div>
           {round.map((m, i) => (
             <ChatMessage key={`${r}-${m.member_id || i}`} item={m} text={m.message} />
@@ -73,8 +74,8 @@ export default function Debate({ openings, rounds, plannedRounds, loading }) {
             <span />
             <span />
           </span>
-          Üyeler birbirine cevap yazıyor
-          {plannedRounds > 1 && ` (${Math.min(done + 1, plannedRounds)}/${plannedRounds}. tur)`}
+          {t('debate.typing')}
+          {plannedRounds > 1 && ` (${t('debate.roundOf', { n: Math.min(done + 1, plannedRounds), total: plannedRounds })})`}
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 """FastAPI backend for Claude Council."""
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -79,7 +79,11 @@ def _event(payload: Dict[str, Any]) -> str:
     return f"data: {json.dumps(payload)}\n\n"
 
 
-def prepare_turn(conversation_id: str, request: SendMessageRequest):
+# The frontend sends its language so the default council is named in it
+LangHeader = Header(default=None, alias="X-Council-Lang")
+
+
+def prepare_turn(conversation_id: str, request: SendMessageRequest, lang: Optional[str] = None):
     """
     Validate a new question and return (content, is_first_message, history, settings).
     For a retry, the failed last turn is removed first. The settings are a
@@ -98,7 +102,7 @@ def prepare_turn(conversation_id: str, request: SendMessageRequest):
     if request.retry and storage.remove_failed_last_turn(conversation_id, content):
         conversation = storage.get_conversation(conversation_id)
 
-    settings = council_settings.get_settings()
+    settings = council_settings.get_settings(council_settings.normalize_lang(lang))
     is_first_message = len(conversation["messages"]) == 0
     history = build_history(conversation["messages"], settings["history_turns"])
     return content, is_first_message, history, settings
@@ -219,40 +223,41 @@ async def forget_setup():
 
 
 @app.get("/api/council")
-async def get_council():
+async def get_council(lang: Optional[str] = LangHeader):
     """Council composition (prompts excluded)."""
-    return _public_council(council_settings.get_settings())
+    return _public_council(council_settings.get_settings(council_settings.normalize_lang(lang)))
 
 
-def _settings_response(settings: Dict[str, Any]) -> Dict[str, Any]:
+def _settings_response(settings: Dict[str, Any], lang: Optional[str] = None) -> Dict[str, Any]:
     return {
         "settings": settings,
-        "defaults": council_settings.defaults(),
+        "defaults": council_settings.defaults(council_settings.normalize_lang(lang)),
         "model_suggestions": council_settings.model_suggestions(settings),
         "limits": council_settings.LIMITS,
     }
 
 
 @app.get("/api/settings")
-async def get_settings():
+async def get_settings(lang: Optional[str] = LangHeader):
     """Full editable council settings, including prompts."""
-    return _settings_response(council_settings.get_settings())
+    return _settings_response(council_settings.get_settings(council_settings.normalize_lang(lang)), lang)
 
 
 @app.put("/api/settings")
-async def update_settings(payload: Dict[str, Any]):
+async def update_settings(payload: Dict[str, Any], lang: Optional[str] = LangHeader):
     """Validate and save council settings."""
     try:
         saved = council_settings.save_settings(payload)
     except council_settings.SettingsError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    return _settings_response(saved)
+    return _settings_response(saved, lang)
 
 
 @app.delete("/api/settings")
-async def reset_settings():
+async def reset_settings(lang: Optional[str] = LangHeader):
     """Restore the default council."""
-    return _settings_response(council_settings.reset_settings())
+    lang = council_settings.normalize_lang(lang)
+    return _settings_response(council_settings.reset_settings(lang), lang)
 
 
 # ---------------------------------------------------------------- conversations
@@ -301,12 +306,12 @@ async def delete_conversation(conversation_id: str):
 
 
 @app.post("/api/conversations/{conversation_id}/message")
-async def send_message(conversation_id: str, request: SendMessageRequest):
+async def send_message(conversation_id: str, request: SendMessageRequest, lang: Optional[str] = LangHeader):
     """
     Send a message and run the council process.
     Returns the complete response with all stages.
     """
-    content, is_first_message, history, settings = prepare_turn(conversation_id, request)
+    content, is_first_message, history, settings = prepare_turn(conversation_id, request, lang)
     started = time.monotonic()
 
     storage.add_user_message(conversation_id, content)
@@ -335,12 +340,12 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
 
 
 @app.post("/api/conversations/{conversation_id}/message/stream")
-async def send_message_stream(conversation_id: str, request: SendMessageRequest):
+async def send_message_stream(conversation_id: str, request: SendMessageRequest, lang: Optional[str] = LangHeader):
     """
     Send a message and stream the council process.
     Returns Server-Sent Events as each stage (and each discussion round) completes.
     """
-    content, is_first_message, history, settings = prepare_turn(conversation_id, request)
+    content, is_first_message, history, settings = prepare_turn(conversation_id, request, lang)
 
     async def event_generator():
         started = time.monotonic()

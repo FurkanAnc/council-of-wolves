@@ -1,6 +1,6 @@
 [project]
 name = "council-of-wolves"
-version = "1.0.0"
+version = "1.1.0"
 description = "An AI advisory council: role-based members answer, debate, review anonymously; a chairman writes the final answer"
 readme = "README.md"
 requires-python = ">=3.10"

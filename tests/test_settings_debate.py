@@ -198,3 +198,24 @@ def test_no_discussion_when_rounds_zero(client, fake_model):
     assert not any(e["type"].startswith("debate") for e in events)
     assert not any("discussion round" in c["prompt"] for c in fake_model)
     assert "debate" not in client.get(f"/api/conversations/{conv['id']}").json()["messages"][1]
+
+
+# --- default council follows the UI language ---------------------------------------
+
+def test_default_council_in_english(client):
+    en = client.get("/api/council", headers={"X-Council-Lang": "en"}).json()
+    assert [m["name"] for m in en["members"]] == ["Expert", "Skeptic", "Pragmatist", "Devil's Advocate"]
+    assert en["chairman"]["name"] == "The Chair"
+    tr = client.get("/api/council").json()
+    assert tr["members"][0]["name"] == "Uzman" and tr["chairman"]["name"] == "Başkan"
+
+
+def test_saved_council_is_not_translated(client):
+    data = settings.defaults()
+    data["members"][0]["name"] = "Benim Uzmanım"
+    client.put("/api/settings", json=data)
+    en = client.get("/api/council", headers={"X-Council-Lang": "en"}).json()
+    assert en["members"][0]["name"] == "Benim Uzmanım"
+    # Reset in English gives the English defaults
+    body = client.delete("/api/settings", headers={"X-Council-Lang": "en"}).json()
+    assert body["settings"]["members"][1]["name"] == "Skeptic"

@@ -2,13 +2,14 @@ import { useState } from 'react';
 import Markdown from './Markdown';
 import CopyButton from './CopyButton';
 import { memberColor, memberInitial, memberName } from '../utils/labels';
+import { t } from '../i18n';
 import './Stage1.css';
 
 /** Shown when the token limit cut an answer short. */
 export function TruncatedBadge() {
   return (
-    <span className="truncated-badge" title="Token limitine ulaşıldı; cevap yarım kalmış olabilir.">
-      Kesildi
+    <span className="truncated-badge" title={t('badge.truncatedHint')}>
+      {t('badge.truncated')}
     </span>
   );
 }
@@ -46,14 +47,14 @@ export default function Stage1({ responses }) {
 
   return (
     <div className="stage1">
-      <MemberTabs items={responses} active={activeTab} onChange={setActiveTab} label="Üye cevapları" />
+      <MemberTabs items={responses} active={activeTab} onChange={setActiveTab} label={t('stage1.title')} />
 
       <div className="member-panel" role="tabpanel">
         <div className="member-panel-header">
           <span className="member-panel-name">{memberName(active)}</span>
           <span className="member-panel-model">{active.model}</span>
           {active.truncated && <TruncatedBadge />}
-          <CopyButton text={active.response} label="Bu cevabı kopyala" />
+          <CopyButton text={active.response} label={t('copy.thisAnswer')} />
         </div>
         <Markdown>{active.response}</Markdown>
       </div>

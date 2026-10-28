@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Markdown from './Markdown';
 import { MemberTabs, TruncatedBadge } from './Stage1';
 import { memberColor, memberInitial, memberLabel, memberName, labelInfo } from '../utils/labels';
+import { t } from '../i18n';
 import './Stage2.css';
 
 function deAnonymizeText(text, labelMapping) {
@@ -23,8 +24,8 @@ function AggregateRanking({ aggregateRankings }) {
   return (
     <div className="aggregate">
       <div className="aggregate-head">
-        <h4>Genel sıralama</h4>
-        <span className="aggregate-note">Ortalama sıra, düşük olan daha iyi</span>
+        <h4>{t('stage2.overall')}</h4>
+        <span className="aggregate-note">{t('stage2.overallNote')}</span>
       </div>
       <ol className="aggregate-list">
         {aggregateRankings.map((agg, index) => {
@@ -35,7 +36,11 @@ function AggregateRanking({ aggregateRankings }) {
             <li
               key={agg.member_id || index}
               className="aggregate-row"
-              title={`${memberLabel(agg)}: ortalama sıra ${agg.average_rank.toFixed(2)}, ${agg.rankings_count} oy`}
+              title={t('stage2.barHint', {
+                name: memberLabel(agg),
+                rank: agg.average_rank.toFixed(2),
+                votes: agg.rankings_count,
+              })}
             >
               <span className="aggregate-pos">{index + 1}</span>
               <span className="aggregate-name">
@@ -49,7 +54,7 @@ function AggregateRanking({ aggregateRankings }) {
               </span>
               <span className="aggregate-value">
                 {agg.average_rank.toFixed(2)}
-                <span className="aggregate-votes"> · {agg.rankings_count} oy</span>
+                <span className="aggregate-votes"> · {t('stage2.votes', { n: agg.rankings_count })}</span>
               </span>
             </li>
           );
@@ -76,13 +81,10 @@ export default function Stage2({ rankings, labelToMember, labelToModel, aggregat
         <AggregateRanking aggregateRankings={aggregateRankings} />
       )}
 
-      <h4 className="evaluations-title">Değerlendirmeler</h4>
-      <p className="stage-description">
-        Her üye tüm cevapları anonim etiketlerle (Response A, B, C…) ve tarafsız hakem olarak değerlendirdi.
-        Okumayı kolaylaştırmak için etiketlerin yerine üye adları <strong>kalın</strong> yazıldı.
-      </p>
+      <h4 className="evaluations-title">{t('stage2.evaluations')}</h4>
+      <p className="stage-description">{t('stage2.description')}</p>
 
-      <MemberTabs items={rankings} active={activeTab} onChange={setActiveTab} label="Değerlendiren üye" />
+      <MemberTabs items={rankings} active={activeTab} onChange={setActiveTab} label={t('stage2.evaluator')} />
 
       <div className="member-panel" role="tabpanel">
         {active.truncated && (
@@ -94,7 +96,7 @@ export default function Stage2({ rankings, labelToMember, labelToModel, aggregat
 
         {active.parsed_ranking && active.parsed_ranking.length > 0 && (
           <div className="parsed-ranking">
-            <span className="parsed-ranking-title">Çıkarılan sıralama</span>
+            <span className="parsed-ranking-title">{t('stage2.parsed')}</span>
             <ol>
               {active.parsed_ranking.map((label, i) => {
                 const info = labelInfo(labelMapping, label);

@@ -22,6 +22,7 @@ Follow-up questions work: the last few question/final-answer pairs of the conver
 - "Tekrar dene" re-asks a failed or stopped question, replacing the failed turn
 - Duration and token usage under each answer; a "Kesildi" badge when the token limit cut an answer short; a note when a member gave no answer
 - Ctrl+K searches conversations
+- **Turkish and English interface:** follows the browser language; switch in Settings → General or with the TR | EN toggle on the welcome screen. The default council is named in the chosen language (custom councils keep their names); the council always answers in the language you ask in
 - **Council settings screen:** add, remove and edit members (name, description, model, role instructions), start from role templates (Etikçi, Yaratıcı, Veri Analisti, Öğretmen, Kullanıcı Savunucusu), edit the chairman and the shared/judge instructions, set discussion rounds and context depth; shows the API calls per question
 
 The backend listens on `127.0.0.1` only and has no login, so it is reachable from this computer only. Set `HOST=0.0.0.0` in `.env` only on a network you trust.

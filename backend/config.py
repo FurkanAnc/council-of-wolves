@@ -124,6 +124,16 @@ DEFAULT_SETTINGS = {
     "history_turns": 4,
 }
 
+# English names/descriptions for the default council (the UI language picks them;
+# role instructions are the same in both languages)
+DEFAULT_TEXT_EN = {
+    "expert": {"name": "Expert", "description": "Deep, technical, maximally accurate answer"},
+    "skeptic": {"name": "Skeptic", "description": "Questions assumptions, errors and missing evidence"},
+    "pragmatist": {"name": "Pragmatist", "description": "Feasibility, concrete steps and real-world constraints"},
+    "contrarian": {"name": "Devil's Advocate", "description": "Argues the strongest opposing view"},
+    "chairman": {"name": "The Chair", "description": "Combines all answers and reviews into the final answer"},
+}
+
 # Token limits live in the connection (setup screen); thinking tokens count toward them
 REQUEST_TIMEOUT = 600.0      # seconds
 

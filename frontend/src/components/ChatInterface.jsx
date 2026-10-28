@@ -3,20 +3,13 @@ import Icon from './Icon';
 import Markdown from './Markdown';
 import AssistantMessage from './AssistantMessage';
 import { memberColor, memberInitial, shortModel } from '../utils/labels';
-
 import { conversationToMarkdown, downloadText, fileNameFor } from '../utils/format';
+import { t } from '../i18n';
 import './ChatInterface.css';
-
-const EXAMPLES = [
-  'Yeni bir dili en hızlı nasıl öğrenirim?',
-  'Kirada mı oturmalıyım, ev mi almalıyım?',
-  'Ekibimiz mikroservis mimarisine geçmeli mi?',
-  'Aralıklı oruç gerçekten sağlıklı mı?',
-];
 
 function displayTitle(conversation) {
   const title = conversation?.title;
-  return title && title !== 'New Conversation' ? title : 'Yeni Sohbet';
+  return title && title !== 'New Conversation' ? title : t('chat.newChat');
 }
 
 function Welcome({ council, onPick, onOpenSettings }) {
@@ -24,25 +17,29 @@ function Welcome({ council, onPick, onOpenSettings }) {
   return (
     <div className="welcome">
       <div className="welcome-hero">
-        <img className="welcome-logo" src="/logo.png" alt="Kurtlar Konseyi logosu" />
-        <h2>Konseye danışın</h2>
+        <img className="welcome-logo" src="/logo.png" alt={t('app.logoAlt')} />
+        <h2>{t('chat.welcomeTitle')}</h2>
         <p>
-          Sorunuzu farklı bakış açılarına sahip {council ? `${council.members.length} üye` : 'üyeler'} ayrı ayrı
-          cevaplar
-          {council?.debate_rounds > 0 ? ', birbirleriyle tartışır' : ''}, ardından birbirlerinin cevaplarını anonim
-          olarak değerlendirir. {council?.chairman?.name || 'Başkan'} hepsini birleştirip son cevabı yazar.
+          {t(council?.debate_rounds > 0 ? 'chat.welcomeTextDebate' : 'chat.welcomeText', {
+            n: council ? council.members.length : '',
+            chairman: council?.chairman?.name || t('stage3.chairman'),
+          })}
         </p>
       </div>
 
       {members.length > 0 && (
         <div className="council-head">
           <span>
-            {council.members.length} üye
-            {council.debate_rounds > 0 ? ` · ${council.debate_rounds} tur tartışma` : ' · tartışma kapalı'}
-            {` · soru başına ~${council.calls_per_question} çağrı`}
+            {t('answer.members', { n: council.members.length })}
+            {' · '}
+            {council.debate_rounds > 0
+              ? t('chat.debateRounds', { n: council.debate_rounds })
+              : t('chat.debateOff')}
+            {' · '}
+            {t('chat.callsPerQuestion', { n: council.calls_per_question })}
           </span>
           <button className="link-btn" onClick={onOpenSettings}>
-            <Icon name="sliders" size={14} /> Konseyi düzenle
+            <Icon name="sliders" size={14} /> {t('chat.editCouncil')}
           </button>
         </div>
       )}
@@ -67,9 +64,9 @@ function Welcome({ council, onPick, onOpenSettings }) {
       )}
 
       <div className="examples">
-        <div className="examples-title">Örnek sorular</div>
+        <div className="examples-title">{t('chat.examplesTitle')}</div>
         <div className="example-list">
-          {EXAMPLES.map((q) => (
+          {t('chat.examples').map((q) => (
             <button key={q} className="example" onClick={() => onPick(q)}>
               {q}
             </button>
@@ -103,7 +100,7 @@ function Composer({ value, onChange, onSubmit, onStop, isLoading, disabledReason
         <textarea
           ref={textareaRef}
           className="composer-input"
-          placeholder={isLoading ? 'Konsey çalışıyor…' : 'Konseye bir soru sorun…'}
+          placeholder={isLoading ? t('composer.busy') : t('composer.placeholder')}
           value={value}
           rows={1}
           onChange={(e) => onChange(e.target.value)}
@@ -113,20 +110,20 @@ function Composer({ value, onChange, onSubmit, onStop, isLoading, disabledReason
               if (canSend) onSubmit();
             }
           }}
-          aria-label="Soru"
+          aria-label={t('composer.label')}
         />
         {isLoading ? (
-          <button type="button" className="composer-btn stop" onClick={onStop} title="Durdur" aria-label="Durdur">
+          <button type="button" className="composer-btn stop" onClick={onStop} title={t('composer.stop')} aria-label={t('composer.stop')}>
             <Icon name="stop" size={16} />
           </button>
         ) : (
-          <button type="submit" className="composer-btn" disabled={!canSend} title="Gönder" aria-label="Gönder">
+          <button type="submit" className="composer-btn" disabled={!canSend} title={t('composer.send')} aria-label={t('composer.send')}>
             <Icon name="send" size={18} strokeWidth={2.2} />
           </button>
         )}
       </div>
       <div className="composer-hint">
-        {disabledReason || 'Enter ile gönder, Shift+Enter ile yeni satır. Konsey önceki soru-cevapları bağlam olarak görür.'}
+        {disabledReason || t('composer.hint')}
       </div>
     </form>
   );
@@ -231,7 +228,7 @@ export default function ChatInterface({
   };
 
   const handleDelete = () => {
-    if (window.confirm(`“${displayTitle(conversation)}” sohbeti silinsin mi? Bu işlem geri alınamaz.`)) {
+    if (window.confirm(t('chat.confirmDelete', { title: displayTitle(conversation) }))) {
       onDelete();
     }
   };
@@ -246,7 +243,7 @@ export default function ChatInterface({
   return (
     <main className="chat">
       <header className="chat-header">
-        <button className="icon-btn menu-btn" onClick={onOpenSidebar} aria-label="Sohbetleri göster" title="Paneli aç (Ctrl+B)">
+        <button className="icon-btn menu-btn" onClick={onOpenSidebar} aria-label={t('sidebar.openPanel')} title={t('sidebar.openPanelHint')}>
           <Icon name="menu" />
         </button>
         {conversation && editingTitle ? (
@@ -264,15 +261,15 @@ export default function ChatInterface({
                 setEditingTitle(false);
               }
             }}
-            aria-label="Sohbet adı"
+            aria-label={t('sidebar.chatName')}
           />
         ) : (
           <h1
             className="chat-title"
             onDoubleClick={startTitleEdit}
-            title={conversation ? 'Yeniden adlandırmak için çift tıklayın' : undefined}
+            title={conversation ? t('chat.doubleClickRename') : undefined}
           >
-            {conversation ? displayTitle(conversation) : 'Yeni Sohbet'}
+            {conversation ? displayTitle(conversation) : t('chat.newChat')}
           </h1>
         )}
         {conversation && (
@@ -280,8 +277,8 @@ export default function ChatInterface({
             <button
               className="icon-btn"
               onClick={startTitleEdit}
-              title="Yeniden adlandır"
-              aria-label="Yeniden adlandır"
+              title={t('common.rename')}
+              aria-label={t('common.rename')}
             >
               <Icon name="pencil" size={17} />
             </button>
@@ -289,12 +286,12 @@ export default function ChatInterface({
               className="icon-btn"
               onClick={handleExport}
               disabled={isEmpty}
-              title="Markdown olarak indir"
-              aria-label="Markdown olarak indir"
+              title={t('chat.export')}
+              aria-label={t('chat.export')}
             >
               <Icon name="download" size={17} />
             </button>
-            <button className="icon-btn danger" onClick={handleDelete} title="Sohbeti sil" aria-label="Sohbeti sil">
+            <button className="icon-btn danger" onClick={handleDelete} title={t('chat.delete')} aria-label={t('chat.delete')}>
               <Icon name="trash" size={17} />
             </button>
           </div>
@@ -318,10 +315,10 @@ export default function ChatInterface({
                     </div>
                     {unanswered && !pending && (
                       <div className="unanswered">
-                        Bu soru cevaplanmadı.
+                        {t('chat.unanswered')}
                         {index === messages.length - 1 && canRetry && (
                           <button className="retry-link" onClick={() => onRetry(msg.content)}>
-                            <Icon name="refresh" size={13} /> Tekrar sor
+                            <Icon name="refresh" size={13} /> {t('chat.askAgain')}
                           </button>
                         )}
                       </div>
@@ -346,7 +343,7 @@ export default function ChatInterface({
             <div className="turn assistant-turn">
               <div className="waiting-card">
                 <span className="spinner" />
-                Konsey bu soru üzerinde çalışıyor. Cevap hazır olunca burada görünecek.
+                {t('chat.waiting')}
               </div>
             </div>
           )}
@@ -354,7 +351,7 @@ export default function ChatInterface({
       </div>
 
       {!atBottom && !isEmpty && (
-        <button className="scroll-bottom" onClick={scrollToBottom} aria-label="En alta in" title="En alta in">
+        <button className="scroll-bottom" onClick={scrollToBottom} aria-label={t('chat.scrollDown')} title={t('chat.scrollDown')}>
           <Icon name="arrowDown" size={18} />
         </button>
       )}
@@ -365,7 +362,7 @@ export default function ChatInterface({
         onSubmit={submit}
         onStop={onStop}
         isLoading={isLoading}
-        disabledReason={isBusyElsewhere ? 'Konsey başka bir sohbette çalışıyor. O cevap bitince soru sorabilirsiniz.' : null}
+        disabledReason={isBusyElsewhere ? t('composer.busyElsewhere') : null}
         textareaRef={textareaRef}
       />
     </main>

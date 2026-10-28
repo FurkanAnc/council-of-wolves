@@ -3,61 +3,36 @@ import Icon from './Icon';
 import { ConnectionCard } from './ConnectionStatus';
 import { api } from '../api';
 import { colorVar, memberInitial } from '../utils/labels';
+import { t, lower, LANGUAGES } from '../i18n';
 import './SettingsModal.css';
 
-// Ready-made roles for new members
-const TEMPLATES = [
-  {
-    name: 'Etikçi',
-    description: 'Etik, toplumsal ve hukuki etkileri değerlendirir',
-    role:
-      'Your role: THE ETHICIST. Answer the question, but examine its ethical, social and legal implications: who could be harmed or helped, what values are in tension, and what a responsible choice looks like. Be concrete, not preachy.',
-  },
-  {
-    name: 'Yaratıcı',
-    description: 'Alışılmadık ve yaratıcı çözümler önerir',
-    role:
-      'Your role: THE CREATIVE. Propose unconventional, imaginative approaches the others are unlikely to suggest. Reframe the problem, combine ideas from other fields, and offer at least one bold option, while noting how practical each idea is.',
-  },
-  {
-    name: 'Veri Analisti',
-    description: 'Sayılara, verilere ve ölçülebilir kanıtlara dayanır',
-    role:
-      'Your role: THE ANALYST. Ground your answer in numbers, data and measurable evidence. Give estimates with ranges, explain the assumptions behind them, and say what data would change your conclusion.',
-  },
-  {
-    name: 'Öğretmen',
-    description: 'Konuyu en sade hâliyle anlatır',
-    role:
-      'Your role: THE TEACHER. Explain the topic as simply and clearly as possible, as if to a curious beginner. Use analogies and short examples, define jargon, and build from the basics to the answer.',
-  },
-  {
-    name: 'Kullanıcı Savunucusu',
-    description: 'Sıradan bir insanın bakış açısını ve ihtiyaçlarını savunur',
-    role:
-      'Your role: THE USER ADVOCATE. Represent the perspective of an ordinary person affected by the question. Focus on everyday impact, hidden costs, ease of use and what people actually experience, not what experts assume.',
-  },
+// Role instructions for the ready-made member templates (names and
+// descriptions come from t('settings.templates'), in the same order)
+const TEMPLATE_ROLES = [
+  'Your role: THE ETHICIST. Answer the question, but examine its ethical, social and legal implications: who could be harmed or helped, what values are in tension, and what a responsible choice looks like. Be concrete, not preachy.',
+  'Your role: THE CREATIVE. Propose unconventional, imaginative approaches the others are unlikely to suggest. Reframe the problem, combine ideas from other fields, and offer at least one bold option, while noting how practical each idea is.',
+  'Your role: THE ANALYST. Ground your answer in numbers, data and measurable evidence. Give estimates with ranges, explain the assumptions behind them, and say what data would change your conclusion.',
+  'Your role: THE TEACHER. Explain the topic as simply and clearly as possible, as if to a curious beginner. Use analogies and short examples, define jargon, and build from the basics to the answer.',
+  'Your role: THE USER ADVOCATE. Represent the perspective of an ordinary person affected by the question. Focus on everyday impact, hidden costs, ease of use and what people actually experience, not what experts assume.',
 ];
 
 const THEMES = [
-  { id: 'system', icon: 'monitor', label: 'Sistem' },
-  { id: 'light', icon: 'sun', label: 'Açık' },
-  { id: 'dark', icon: 'moon', label: 'Koyu' },
+  { id: 'system', icon: 'monitor' },
+  { id: 'light', icon: 'sun' },
+  { id: 'dark', icon: 'moon' },
 ];
 
-const TABS = [
-  { id: 'general', label: 'Genel' },
-  { id: 'members', label: 'Üyeler' },
-  { id: 'chairman', label: 'Başkan' },
-  { id: 'discussion', label: 'Tartışma ve bağlam' },
-  { id: 'advanced', label: 'Gelişmiş' },
-];
+const TABS = ['general', 'members', 'chairman', 'discussion', 'advanced'];
+
+function templates() {
+  return t('settings.templates').map((tpl, i) => ({ ...tpl, role: TEMPLATE_ROLES[i] }));
+}
 
 function uniqueName(name, members) {
-  const taken = new Set(members.map((m) => m.name.trim().toLocaleLowerCase('tr')));
-  if (!taken.has(name.toLocaleLowerCase('tr'))) return name;
+  const taken = new Set(members.map((m) => lower(m.name.trim())));
+  if (!taken.has(lower(name))) return name;
   let n = 2;
-  while (taken.has(`${name} ${n}`.toLocaleLowerCase('tr'))) n += 1;
+  while (taken.has(lower(`${name} ${n}`))) n += 1;
   return `${name} ${n}`;
 }
 
@@ -74,24 +49,24 @@ function validate(data, limits) {
   const seen = new Map();
   data.members.forEach((m, i) => {
     const e = {};
-    const key = m.name.trim().toLocaleLowerCase('tr');
-    if (!m.name.trim()) e.name = 'Ad gerekli';
-    else if (seen.has(key)) e.name = 'Bu ad başka bir üyede de var';
+    const key = lower(m.name.trim());
+    if (!m.name.trim()) e.name = t('validation.nameRequired');
+    else if (seen.has(key)) e.name = t('validation.nameTaken');
     seen.set(key, i);
-    if (!m.model.trim()) e.model = 'Model gerekli';
-    if (!m.role.trim()) e.role = 'Rol talimatı gerekli';
+    if (!m.model.trim()) e.model = t('validation.modelRequired');
+    if (!m.role.trim()) e.role = t('validation.roleRequired');
     if (Object.keys(e).length) errors[`member-${i}`] = e;
   });
   const c = data.chairman;
   const ce = {};
-  if (!c.name.trim()) ce.name = 'Ad gerekli';
-  else if (seen.has(c.name.trim().toLocaleLowerCase('tr'))) ce.name = 'Bir üyeyle aynı ad olamaz';
-  if (!c.model.trim()) ce.model = 'Model gerekli';
-  if (!c.instructions.trim()) ce.instructions = 'Talimat gerekli';
+  if (!c.name.trim()) ce.name = t('validation.nameRequired');
+  else if (seen.has(lower(c.name.trim()))) ce.name = t('validation.chairmanName');
+  if (!c.model.trim()) ce.model = t('validation.modelRequired');
+  if (!c.instructions.trim()) ce.instructions = t('validation.instructionsRequired');
   if (Object.keys(ce).length) errors.chairman = ce;
-  if (!data.preamble.trim()) errors.preamble = 'Gerekli';
-  if (!data.judge_instructions.trim()) errors.judge = 'Gerekli';
-  if (data.members.length < limits.min_members) errors.count = `En az ${limits.min_members} üye gerekli`;
+  if (!data.preamble.trim()) errors.preamble = t('validation.required');
+  if (!data.judge_instructions.trim()) errors.judge = t('validation.required');
+  if (data.members.length < limits.min_members) errors.count = t('validation.minMembers', { n: limits.min_members });
   return errors;
 }
 
@@ -119,8 +94,8 @@ function MemberCard({ member, index, expanded, onToggle, onChange, onRemove, can
             {memberInitial({ name: member.name || '?' })}
           </span>
           <span className="member-card-title">
-            <span className="member-card-name">{member.name || `Üye ${index + 1}`}</span>
-            <span className="member-card-desc">{member.description || 'Açıklama yok'}</span>
+            <span className="member-card-name">{member.name || t('settings.memberN', { n: index + 1 })}</span>
+            <span className="member-card-desc">{member.description || t('settings.noDescription')}</span>
           </span>
           <span className="model-chip" title={member.model}>{member.model || 'model?'}</span>
         </button>
@@ -129,8 +104,8 @@ function MemberCard({ member, index, expanded, onToggle, onChange, onRemove, can
           className="icon-btn danger"
           onClick={onRemove}
           disabled={!canRemove}
-          title={canRemove ? 'Üyeyi çıkar' : 'Daha az üye olamaz'}
-          aria-label="Üyeyi çıkar"
+          title={canRemove ? t('settings.removeMember') : t('settings.cannotRemove')}
+          aria-label={t('settings.removeMember')}
         >
           <Icon name="trash" size={16} />
         </button>
@@ -139,10 +114,10 @@ function MemberCard({ member, index, expanded, onToggle, onChange, onRemove, can
       {expanded && (
         <div className="member-card-body">
           <div className="field-row">
-            <Field label="Ad" error={errors?.name}>
+            <Field label={t('settings.name')} error={errors?.name}>
               <input value={member.name} maxLength={40} onChange={(e) => onChange({ name: e.target.value })} />
             </Field>
-            <Field label="Model" error={errors?.model}>
+            <Field label={t('settings.model')} error={errors?.model}>
               <input
                 value={member.model}
                 maxLength={100}
@@ -151,18 +126,14 @@ function MemberCard({ member, index, expanded, onToggle, onChange, onRemove, can
               />
             </Field>
           </div>
-          <Field label="Kısa açıklama" hint="Arayüzde ve Başkan'ın gördüğü üye listesinde kullanılır.">
+          <Field label={t('settings.description')} hint={t('settings.descriptionHint')}>
             <input
               value={member.description}
               maxLength={160}
               onChange={(e) => onChange({ description: e.target.value })}
             />
           </Field>
-          <Field
-            label="Rol talimatı"
-            error={errors?.role}
-            hint="Bu üyeye gönderilen talimat. Türkçe ya da İngilizce yazabilirsiniz; üye her zaman kullanıcının dilinde cevap verir."
-          >
+          <Field label={t('settings.role')} error={errors?.role} hint={t('settings.roleHint')}>
             <textarea rows={6} value={member.role} onChange={(e) => onChange({ role: e.target.value })} />
           </Field>
         </div>
@@ -176,6 +147,8 @@ export default function SettingsModal({
   onSaved,
   theme,
   onThemeChange,
+  lang,
+  onLanguageChange,
   onChangeConnection,
   showWelcome,
   onShowWelcomeChange,
@@ -190,6 +163,7 @@ export default function SettingsModal({
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  // Loaded again when the language changes: default member names follow it
   useEffect(() => {
     let cancelled = false;
     api
@@ -200,18 +174,18 @@ export default function SettingsModal({
         setOriginal(res.settings);
         setMeta({ defaults: res.defaults, suggestions: res.model_suggestions, limits: res.limits });
       })
-      .catch((e) => !cancelled && setError(`Ayarlar yüklenemedi: ${e.message}`));
+      .catch((e) => !cancelled && setError(t('settings.loadFailed', { error: e.message })));
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [lang]);
 
   const dirty = useMemo(() => JSON.stringify(data) !== JSON.stringify(original), [data, original]);
-  const errors = useMemo(() => (meta ? validate(data, meta.limits) : {}), [data, meta]);
+  const errors = useMemo(() => (meta ? validate(data, meta.limits) : {}), [data, meta, lang]); // eslint-disable-line react-hooks/exhaustive-deps
   const hasErrors = Object.keys(errors).length > 0;
 
   const requestClose = () => {
-    if (dirty && !window.confirm('Kaydedilmemiş değişiklikler kaybolacak. Kapatılsın mı?')) return;
+    if (dirty && !window.confirm(t('settings.discardConfirm'))) return;
     onClose();
   };
 
@@ -233,7 +207,7 @@ export default function SettingsModal({
   const updateChairman = (patch) => setData((d) => ({ ...d, chairman: { ...d.chairman, ...patch } }));
 
   const addMember = (template) => {
-    const base = template || { name: 'Yeni Üye', description: '', role: '' };
+    const base = template || { name: t('settings.newMember'), description: '', role: '' };
     const member = {
       id: '',
       name: uniqueName(base.name, data.members),
@@ -248,8 +222,8 @@ export default function SettingsModal({
   };
 
   const removeMember = (index) => {
-    const name = data.members[index].name || `Üye ${index + 1}`;
-    if (!window.confirm(`${name} konseyden çıkarılsın mı?`)) return;
+    const name = data.members[index].name || t('settings.memberN', { n: index + 1 });
+    if (!window.confirm(t('settings.removeConfirm', { name }))) return;
     setData((d) => ({ ...d, members: d.members.filter((_, i) => i !== index) }));
     setExpanded(-1);
   };
@@ -271,7 +245,7 @@ export default function SettingsModal({
   };
 
   const resetToDefaults = () => {
-    if (!window.confirm('Tüm üyeler, roller ve talimatlar varsayılana dönsün mü? (Kaydet ile uygulanır.)')) return;
+    if (!window.confirm(t('settings.resetConfirm'))) return;
     setData(JSON.parse(JSON.stringify(meta.defaults)));
     setExpanded(0);
   };
@@ -286,28 +260,28 @@ export default function SettingsModal({
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <header className="modal-header">
           <div>
-            <h2 id="settings-title">Ayarlar</h2>
-            <p className="modal-sub">Görünüm, bağlantı ve konseyin nasıl çalıştığı.</p>
+            <h2 id="settings-title">{t('settings.title')}</h2>
+            <p className="modal-sub">{t('settings.subtitle')}</p>
           </div>
-          <button className="icon-btn" onClick={requestClose} aria-label="Kapat">
+          <button className="icon-btn" onClick={requestClose} aria-label={t('common.close')}>
             <Icon name="x" />
           </button>
         </header>
 
         <nav className="modal-tabs" role="tablist">
-          {TABS.map((t) => (
+          {TABS.map((id) => (
             <button
-              key={t.id}
+              key={id}
               role="tab"
-              aria-selected={tab === t.id}
-              className={`modal-tab ${tab === t.id ? 'active' : ''}`}
-              onClick={() => setTab(t.id)}
+              aria-selected={tab === id}
+              className={`modal-tab ${tab === id ? 'active' : ''}`}
+              onClick={() => setTab(id)}
             >
-              {t.label}
-              {t.id === 'members' && data && <span className="tab-count">{members.length}</span>}
-              {((t.id === 'members' && Object.keys(errors).some((k) => k.startsWith('member') || k === 'count')) ||
-                (t.id === 'chairman' && errors.chairman) ||
-                (t.id === 'advanced' && (errors.preamble || errors.judge))) && <span className="tab-dot" />}
+              {t(`settings.tab.${id}`)}
+              {id === 'members' && data && <span className="tab-count">{members.length}</span>}
+              {((id === 'members' && Object.keys(errors).some((k) => k.startsWith('member') || k === 'count')) ||
+                (id === 'chairman' && errors.chairman) ||
+                (id === 'advanced' && (errors.preamble || errors.judge))) && <span className="tab-dot" />}
             </button>
           ))}
         </nav>
@@ -315,7 +289,7 @@ export default function SettingsModal({
         <div className="modal-body">
           {!data && !error && (
             <div className="modal-loading">
-              <span className="spinner" /> Yükleniyor…
+              <span className="spinner" /> {t('common.loading')}
             </div>
           )}
 
@@ -331,22 +305,40 @@ export default function SettingsModal({
                 <div className="tab-panel">
                   <div className="setting-block">
                     <div className="setting-head">
-                      <span className="setting-title">Tema</span>
-                      <span className="setting-desc">
-                        Sistem, bilgisayarınızın açık/koyu ayarını izler. Değişiklik hemen uygulanır.
-                      </span>
+                      <span className="setting-title">{t('settings.language')}</span>
+                      <span className="setting-desc">{t('settings.languageDesc')}</span>
                     </div>
-                    <div className="segmented" role="radiogroup" aria-label="Tema">
-                      {THEMES.map((t) => (
+                    <div className="segmented" role="radiogroup" aria-label={t('settings.language')}>
+                      {LANGUAGES.map((l) => (
                         <button
-                          key={t.id}
+                          key={l.id}
                           role="radio"
-                          aria-checked={theme === t.id}
-                          className={`segment segment-icon ${theme === t.id ? 'active' : ''}`}
-                          onClick={() => onThemeChange(t.id)}
+                          aria-checked={lang === l.id}
+                          className={`segment ${lang === l.id ? 'active' : ''}`}
+                          onClick={() => onLanguageChange(l.id)}
                         >
-                          <Icon name={t.icon} size={15} />
-                          {t.label}
+                          {l.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="setting-block">
+                    <div className="setting-head">
+                      <span className="setting-title">{t('settings.theme')}</span>
+                      <span className="setting-desc">{t('settings.themeDesc')}</span>
+                    </div>
+                    <div className="segmented" role="radiogroup" aria-label={t('settings.theme')}>
+                      {THEMES.map((th) => (
+                        <button
+                          key={th.id}
+                          role="radio"
+                          aria-checked={theme === th.id}
+                          className={`segment segment-icon ${theme === th.id ? 'active' : ''}`}
+                          onClick={() => onThemeChange(th.id)}
+                        >
+                          <Icon name={th.icon} size={15} />
+                          {t(`theme.${th.id}`)}
                         </button>
                       ))}
                     </div>
@@ -354,8 +346,8 @@ export default function SettingsModal({
 
                   <label className="setting-block setting-toggle">
                     <span className="setting-head">
-                      <span className="setting-title">Açılışta karşılama ekranı</span>
-                      <span className="setting-desc">Uygulama her açıldığında önce karşılama sayfası gösterilir.</span>
+                      <span className="setting-title">{t('settings.welcome')}</span>
+                      <span className="setting-desc">{t('settings.welcomeDesc')}</span>
                     </span>
                     <input
                       type="checkbox"
@@ -367,10 +359,8 @@ export default function SettingsModal({
 
                   <div className="setting-block">
                     <div className="setting-head">
-                      <span className="setting-title">API bağlantısı</span>
-                      <span className="setting-desc">
-                        Sağlayıcı, API anahtarı, model ve token limitleri. Anahtar bu bilgisayarda şifreli saklanır.
-                      </span>
+                      <span className="setting-title">{t('settings.connection')}</span>
+                      <span className="setting-desc">{t('settings.connectionDesc')}</span>
                     </div>
                     <ConnectionCard onChange={onChangeConnection} />
                   </div>
@@ -380,8 +370,7 @@ export default function SettingsModal({
               {tab === 'members' && (
                 <div className="tab-panel">
                   <p className="panel-intro">
-                    Her üye soruyu kendi rolüyle cevaplar, diğerlerinin cevaplarını tartışır ve anonim olarak değerlendirir.
-                    {` ${meta.limits.min_members}–${meta.limits.max_members} üye olabilir.`}
+                    {t('settings.membersIntro', { min: meta.limits.min_members, max: meta.limits.max_members })}
                   </p>
                   {errors.count && <div className="form-error">{errors.count}</div>}
                   <div className="member-list">
@@ -402,7 +391,7 @@ export default function SettingsModal({
                   </div>
                   <div className="add-member">
                     <button className="btn btn-ghost" onClick={() => addMember(null)} disabled={!canAdd}>
-                      <Icon name="plus" size={16} /> Boş üye ekle
+                      <Icon name="plus" size={16} /> {t('settings.addBlank')}
                     </button>
                     <div className="template-picker">
                       <button
@@ -411,38 +400,36 @@ export default function SettingsModal({
                         disabled={!canAdd}
                         aria-expanded={templatesOpen}
                       >
-                        <Icon name="sparkle" size={16} /> Şablondan ekle
+                        <Icon name="sparkle" size={16} /> {t('settings.addTemplate')}
                       </button>
                       {templatesOpen && (
                         <div className="template-menu" role="menu">
-                          {TEMPLATES.map((t) => (
-                            <button key={t.name} role="menuitem" className="template-item" onClick={() => addMember(t)}>
-                              <span className="template-name">{t.name}</span>
-                              <span className="template-desc">{t.description}</span>
+                          {templates().map((tpl) => (
+                            <button key={tpl.name} role="menuitem" className="template-item" onClick={() => addMember(tpl)}>
+                              <span className="template-name">{tpl.name}</span>
+                              <span className="template-desc">{tpl.description}</span>
                             </button>
                           ))}
                         </div>
                       )}
                     </div>
-                    {!canAdd && <span className="field-hint">En fazla {meta.limits.max_members} üye.</span>}
+                    {!canAdd && <span className="field-hint">{t('settings.maxMembers', { n: meta.limits.max_members })}</span>}
                   </div>
                 </div>
               )}
 
               {tab === 'chairman' && (
                 <div className="tab-panel">
-                  <p className="panel-intro">
-                    Başkan tüm cevapları, tartışmayı ve değerlendirmeleri okuyup son cevabı yazar.
-                  </p>
+                  <p className="panel-intro">{t('settings.chairmanIntro')}</p>
                   <div className="field-row">
-                    <Field label="Ad" error={errors.chairman?.name}>
+                    <Field label={t('settings.name')} error={errors.chairman?.name}>
                       <input
                         value={data.chairman.name}
                         maxLength={40}
                         onChange={(e) => updateChairman({ name: e.target.value })}
                       />
                     </Field>
-                    <Field label="Model" error={errors.chairman?.model}>
+                    <Field label={t('settings.model')} error={errors.chairman?.model}>
                       <input
                         value={data.chairman.model}
                         maxLength={100}
@@ -451,7 +438,7 @@ export default function SettingsModal({
                       />
                     </Field>
                   </div>
-                  <Field label="Kısa açıklama">
+                  <Field label={t('settings.description')}>
                     <input
                       value={data.chairman.description}
                       maxLength={160}
@@ -459,9 +446,9 @@ export default function SettingsModal({
                     />
                   </Field>
                   <Field
-                    label="Başkan talimatı"
+                    label={t('settings.chairmanInstructions')}
                     error={errors.chairman?.instructions}
-                    hint="Üyelerin adları ve açıklamaları bu talimatın başına otomatik eklenir."
+                    hint={t('settings.chairmanInstructionsHint')}
                   >
                     <textarea
                       rows={8}
@@ -476,13 +463,10 @@ export default function SettingsModal({
                 <div className="tab-panel">
                   <div className="setting-block">
                     <div className="setting-head">
-                      <span className="setting-title">Tartışma turu</span>
-                      <span className="setting-desc">
-                        İlk cevaplardan sonra üyeler birbirlerinin cevaplarını okuyup isimleriyle birbirine cevap verir.
-                        Başkan bu tartışmayı da görür. 0 tartışmayı kapatır.
-                      </span>
+                      <span className="setting-title">{t('settings.debateRounds')}</span>
+                      <span className="setting-desc">{t('settings.debateRoundsDesc')}</span>
                     </div>
-                    <div className="segmented" role="radiogroup" aria-label="Tartışma turu">
+                    <div className="segmented" role="radiogroup" aria-label={t('settings.debateRounds')}>
                       {Array.from({ length: meta.limits.max_debate_rounds + 1 }, (_, n) => (
                         <button
                           key={n}
@@ -491,7 +475,7 @@ export default function SettingsModal({
                           className={`segment ${data.debate_rounds === n ? 'active' : ''}`}
                           onClick={() => update({ debate_rounds: n })}
                         >
-                          {n === 0 ? 'Kapalı' : `${n} tur`}
+                          {n === 0 ? t('common.off') : t('settings.nRounds', { n })}
                         </button>
                       ))}
                     </div>
@@ -499,10 +483,8 @@ export default function SettingsModal({
 
                   <div className="setting-block">
                     <div className="setting-head">
-                      <span className="setting-title">Sohbet bağlamı</span>
-                      <span className="setting-desc">
-                        Takip sorularında konseye gönderilen önceki soru-cevap sayısı. Fazlası daha çok token harcar.
-                      </span>
+                      <span className="setting-title">{t('settings.context')}</span>
+                      <span className="setting-desc">{t('settings.contextDesc')}</span>
                     </div>
                     <div className="range-row">
                       <input
@@ -511,10 +493,10 @@ export default function SettingsModal({
                         max={meta.limits.max_history_turns}
                         value={data.history_turns}
                         onChange={(e) => update({ history_turns: Number(e.target.value) })}
-                        aria-label="Bağlam turu sayısı"
+                        aria-label={t('settings.contextLabel')}
                       />
                       <span className="range-value">
-                        {data.history_turns === 0 ? 'Kapalı' : `Son ${data.history_turns}`}
+                        {data.history_turns === 0 ? t('common.off') : t('settings.lastN', { n: data.history_turns })}
                       </span>
                     </div>
                   </div>
@@ -522,9 +504,11 @@ export default function SettingsModal({
                   <div className="estimate">
                     <Icon name="alert" size={16} />
                     <span>
-                      Bu ayarlarla her soru yaklaşık <strong>{calls} API çağrısı</strong> yapar ({members.length} cevap
-                      {data.debate_rounds > 0 && ` + ${members.length * data.debate_rounds} tartışma mesajı`} +{' '}
-                      {members.length} değerlendirme + 1 Başkan; ilk soruda +1 başlık).
+                      {t(data.debate_rounds > 0 ? 'settings.estimateDebate' : 'settings.estimate', {
+                        calls,
+                        n: members.length,
+                        debate: members.length * data.debate_rounds,
+                      })}
                     </span>
                   </div>
                 </div>
@@ -532,18 +516,10 @@ export default function SettingsModal({
 
               {tab === 'advanced' && (
                 <div className="tab-panel">
-                  <Field
-                    label="Ortak üye talimatı"
-                    error={errors.preamble}
-                    hint="İlk cevap aşamasında her üyenin rol talimatının başına eklenir."
-                  >
+                  <Field label={t('settings.preamble')} error={errors.preamble} hint={t('settings.preambleHint')}>
                     <textarea rows={5} value={data.preamble} onChange={(e) => update({ preamble: e.target.value })} />
                   </Field>
-                  <Field
-                    label="Hakem talimatı"
-                    error={errors.judge}
-                    hint="Çapraz değerlendirmede kullanılır. “Response A” etiket kuralı ve sıralama biçimi otomatik eklenir."
-                  >
+                  <Field label={t('settings.judge')} error={errors.judge} hint={t('settings.judgeHint')}>
                     <textarea
                       rows={6}
                       value={data.judge_instructions}
@@ -560,15 +536,15 @@ export default function SettingsModal({
 
         <footer className="modal-footer">
           <button className="btn btn-ghost" onClick={resetToDefaults} disabled={!meta}>
-            Varsayılanlara dön
+            {t('settings.reset')}
           </button>
           <div className="modal-footer-right">
-            {dirty && <span className="unsaved">Kaydedilmemiş değişiklikler</span>}
+            {dirty && <span className="unsaved">{t('settings.unsaved')}</span>}
             <button className="btn btn-ghost" onClick={requestClose}>
-              İptal
+              {t('common.cancel')}
             </button>
             <button className="btn btn-primary" onClick={save} disabled={!dirty || hasErrors || saving}>
-              {saving ? 'Kaydediliyor…' : 'Kaydet'}
+              {saving ? t('common.saving') : t('common.save')}
             </button>
           </div>
         </footer>

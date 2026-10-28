@@ -5,6 +5,7 @@ import SettingsModal from './components/SettingsModal';
 import SetupScreen from './components/SetupScreen';
 import { api } from './api';
 import { setCouncilColors } from './utils/labels';
+import { t, getLanguage, setLanguage } from './i18n';
 import './App.css';
 
 const THEME_KEY = 'council-theme';
@@ -57,6 +58,8 @@ function App() {
   const [loadingConversationId, setLoadingConversationId] = useState(null);
   const [council, setCouncil] = useState(null);
   const [theme, setTheme] = useState(readTheme);
+  // UI language; module state in i18n mirrors it so t() can be called anywhere
+  const [lang, setLang] = useState(getLanguage);
   // Narrow screens: off-canvas sidebar (sidebarOpen). Wide screens: it can be collapsed.
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readCollapsed);
@@ -115,8 +118,8 @@ function App() {
   useEffect(() => {
     const title = currentConversation?.title;
     document.title =
-      title && title !== 'New Conversation' ? `${title} · Kurtlar Konseyi` : 'Kurtlar Konseyi';
-  }, [currentConversation?.title]);
+      title && title !== 'New Conversation' ? `${title} · ${t('app.name')}` : t('app.name');
+  }, [currentConversation?.title, lang]);
 
   useEffect(() => {
     try {
@@ -227,6 +230,13 @@ function App() {
     loadSetup();
   }, [loadConversations, loadCouncil, loadSetup]);
 
+  // Default member names are localized by the backend, so reload the council too
+  const changeLanguage = (next) => {
+    setLanguage(next);
+    setLang(next);
+    loadCouncil();
+  };
+
   // After a connection is saved: models (and so the council) may have changed
   const handleConnectionSaved = (info) => {
     setWelcomeOpen(false);
@@ -237,7 +247,7 @@ function App() {
   };
 
   const handleForgetConnection = async () => {
-    if (!window.confirm('Kayıtlı API anahtarı silinsin mi? Kurulum ekranı yeniden açılacak.')) return;
+    if (!window.confirm(t('connection.forgetConfirm'))) return;
     try {
       setSetup(await api.forgetSetup());
       setEditingConnection(false);
@@ -269,7 +279,7 @@ function App() {
       setConversations((list) => list.map((c) => (c.id === id ? { ...c, title: clean } : c)));
       setCurrentConversation((prev) => (prev && prev.id === id ? { ...prev, title: clean } : prev));
     } catch (error) {
-      showNotice(`Yeniden adlandırılamadı: ${error.message}`);
+      showNotice(t('notice.renameFailed', { error: error.message }));
     }
   };
 
@@ -280,7 +290,7 @@ function App() {
       setConversations((list) => list.filter((c) => c.id !== id));
       if (currentIdRef.current === id) selectConversation(null);
     } catch (error) {
-      showNotice(`Silinemedi: ${error.message}`);
+      showNotice(t('notice.deleteFailed', { error: error.message }));
     }
   };
 
@@ -306,7 +316,7 @@ function App() {
         setCurrentConversationId(conversationId);
         setCurrentConversation(newConv);
       } catch (error) {
-        showNotice(`Sohbet oluşturulamadı: ${error.message}`);
+        showNotice(t('notice.createFailed', { error: error.message }));
         return;
       }
     }
@@ -423,7 +433,7 @@ function App() {
       );
       if (!finished) {
         // The server closed the stream without a final event (crash or lost connection)
-        finishAssistant({ error: 'Sunucuyla bağlantı beklenmedik şekilde kesildi.' });
+        finishAssistant({ error: t('notice.streamLost') });
         loadConversations();
       }
     } catch (error) {
@@ -450,9 +460,9 @@ function App() {
     return (
       <div className="startup-error">
         <img src="/logo.png" alt="" />
-        <h1>Sunucu başlatılıyor…</h1>
+        <h1>{t('startup.starting')}</h1>
         <p>
-          <span className="spinner" /> Bu ilk açılışta birkaç saniye sürebilir.
+          <span className="spinner" /> {t('startup.startingHint')}
         </p>
       </div>
     );
@@ -462,8 +472,8 @@ function App() {
     return (
       <div className="startup-error">
         <img src="/logo.png" alt="" />
-        <h1>Sunucuya bağlanılamadı</h1>
-        <p>Uygulamanın sunucusu çalışmıyor. Konsey'i Baslat.bat penceresinin açık olduğundan emin olun.</p>
+        <h1>{t('startup.down')}</h1>
+        <p>{t('startup.downHint')}</p>
         <button
           className="btn btn-primary"
           onClick={() => {
@@ -471,7 +481,7 @@ function App() {
             loadSetup();
           }}
         >
-          Tekrar dene
+          {t('common.retry')}
         </button>
       </div>
     );
@@ -479,7 +489,15 @@ function App() {
 
   // First launch: nothing saved yet, so set up the connection before anything else
   if (setup && !setup.configured) {
-    return <SetupScreen existing={setup} council={council} onDone={handleConnectionSaved} />;
+    return (
+      <SetupScreen
+        existing={setup}
+        council={council}
+        onDone={handleConnectionSaved}
+        lang={lang}
+        onLanguageChange={changeLanguage}
+      />
+    );
   }
 
   if (setup && welcomeOpen) {
@@ -494,6 +512,8 @@ function App() {
           setWelcomeOpen(false);
         }}
         onForget={handleForgetConnection}
+        lang={lang}
+        onLanguageChange={changeLanguage}
       />
     );
   }
@@ -533,6 +553,8 @@ function App() {
           initialTab={settingsTab}
           theme={theme}
           onThemeChange={setTheme}
+          lang={lang}
+          onLanguageChange={changeLanguage}
           onClose={() => setSettingsTab(null)}
           showWelcome={showWelcomePref}
           onShowWelcomeChange={changeShowWelcome}
@@ -542,7 +564,7 @@ function App() {
           }}
           onSaved={() => {
             loadCouncil();
-            showNotice('Konsey ayarları kaydedildi. Yeni sorular bu ayarlarla cevaplanacak.');
+            showNotice(t('notice.settingsSaved'));
           }}
         />
       )}
@@ -552,7 +574,7 @@ function App() {
           council={council}
           onDone={(info) => {
             handleConnectionSaved(info);
-            showNotice('Bağlantı kaydedildi.');
+            showNotice(t('notice.connectionSaved'));
           }}
           onCancel={() => setEditingConnection(false)}
           onForget={handleForgetConnection}

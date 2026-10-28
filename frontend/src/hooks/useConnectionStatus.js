@@ -17,7 +17,8 @@ export function useConnectionStatus(refreshSignal) {
     } catch {
       setStatus({
         status: 'backend_down',
-        message: 'Uygulamanın sunucusuna (backend) bağlanılamadı. start.ps1 penceresi açık mı?',
+        // Text comes from t('status.backendDownMessage') where it is shown
+        message: 'backend_down',
       });
     }
   }, []);

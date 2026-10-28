@@ -408,3 +408,32 @@
 .setup-link:hover {
   text-decoration: underline;
 }
+
+/* Language switch in the corner of the card */
+.setup-card {
+  position: relative;
+}
+
+.setup-lang {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 6px;
+  background: var(--surface-3);
+}
+
+.setup-lang button {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.setup-lang button.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}

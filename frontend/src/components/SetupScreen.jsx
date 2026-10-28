@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Icon from './Icon';
 import { api } from '../api';
 import { memberColor, memberInitial } from '../utils/labels';
+import { t, LANGUAGES } from '../i18n';
 import './SetupScreen.css';
 
 // Provider presets; "custom" takes any Anthropic-compatible URL
@@ -9,7 +10,7 @@ const PROVIDERS = [
   {
     id: 'yeta',
     name: 'yeta.ai',
-    description: 'DeepSeek ve diğer modeller, Anthropic uyumlu',
+    descriptionKey: 'setup.providerYeta',
     baseUrl: 'https://platform.yeta.ai',
     model: 'deepseek-v4.1-flash',
     models: ['deepseek-v4.1-flash', 'koray-1.0'],
@@ -17,15 +18,15 @@ const PROVIDERS = [
   {
     id: 'anthropic',
     name: 'Anthropic',
-    description: 'Claude modelleri (Opus, Sonnet)',
+    descriptionKey: 'setup.providerAnthropic',
     baseUrl: '',
     model: '',
     models: ['claude-opus-5-5', 'claude-sonnet-5-5'],
   },
   {
     id: 'custom',
-    name: 'Diğer',
-    description: 'Anthropic uyumlu başka bir sağlayıcı',
+    nameKey: 'setup.providerCustom',
+    descriptionKey: 'setup.providerCustomDesc',
     baseUrl: '',
     model: '',
     models: [],
@@ -38,15 +39,37 @@ function providerFor(baseUrl) {
 }
 
 const FEATURES = [
-  { icon: 'users', title: 'Farklı rollerde üyeler', text: 'Uzman, Şüpheci, Pratik ve Şeytanın Avukatı sorunuzu kendi açısından cevaplar.' },
-  { icon: 'chat', title: 'Tartışma ve anonim değerlendirme', text: 'Üyeler birbirine cevap verir, sonra birbirlerinin cevaplarını isim görmeden puanlar.' },
-  { icon: 'sparkle', title: 'Tek bir güçlü cevap', text: 'Başkan tüm görüşleri tartıp en iyi son cevabı yazar.' },
+  { icon: 'users', key: 'roles' },
+  { icon: 'chat', key: 'debate' },
+  { icon: 'sparkle', key: 'final' },
 ];
 
-function Steps({ step }) {
-  const labels = ['Hoş geldiniz', 'Bağlantı', 'Hazır'];
+/** TR | EN switch in the corner of the card (a first-time visitor may not read Turkish). */
+function LanguageSwitch({ lang, onChange }) {
+  if (!onChange) return null;
   return (
-    <ol className="setup-steps" aria-label="Kurulum adımları">
+    <div className="setup-lang" role="radiogroup" aria-label={t('settings.language')}>
+      {LANGUAGES.map((l) => (
+        <button
+          key={l.id}
+          type="button"
+          role="radio"
+          aria-checked={lang === l.id}
+          className={lang === l.id ? 'active' : ''}
+          onClick={() => onChange(l.id)}
+          title={l.label}
+        >
+          {l.id.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Steps({ step }) {
+  const labels = [t('setup.stepWelcome'), t('setup.stepConnection'), t('setup.stepReady')];
+  return (
+    <ol className="setup-steps" aria-label={t('setup.steps')}>
       {labels.map((label, i) => (
         <li key={label} className={`setup-step ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`}>
           <span className="setup-step-dot">{i < step ? <Icon name="check" size={11} strokeWidth={3} /> : i + 1}</span>
@@ -61,7 +84,17 @@ function Steps({ step }) {
  * First-run setup (and "change connection" when `existing` is given).
  * The key goes to the local backend only, which tests it before saving it encrypted.
  */
-export default function SetupScreen({ existing, council, onDone, onCancel, onForget, welcome = false, onEnter }) {
+export default function SetupScreen({
+  existing,
+  council,
+  onDone,
+  onCancel,
+  onForget,
+  welcome = false,
+  onEnter,
+  lang,
+  onLanguageChange,
+}) {
   const editing = Boolean(existing?.configured);
   // `welcome`: already connected, shown as the opening page on every launch
   const returning = welcome && editing;
@@ -129,22 +162,23 @@ export default function SetupScreen({ existing, council, onDone, onCancel, onFor
         role={editing && !returning ? 'dialog' : undefined}
         aria-modal={(editing && !returning) || undefined}
       >
+        <LanguageSwitch lang={lang} onChange={onLanguageChange} />
         {!editing && <Steps step={step} />}
 
         {step === 0 && (
           <div className="setup-body setup-welcome">
-            <img className="setup-logo" src="/logo.png" alt="Kurtlar Konseyi logosu" />
-            <h1>{returning ? 'Tekrar hoş geldiniz' : 'Kurtlar Konseyi’ne hoş geldiniz'}</h1>
-            <p className="setup-lead">Tek bir yapay zekâya sormak yerine, bir konseye danışın.</p>
+            <img className="setup-logo" src="/logo.png" alt={t('app.logoAlt')} />
+            <h1>{returning ? t('setup.welcomeBack') : t('setup.welcome')}</h1>
+            <p className="setup-lead">{t('setup.lead')}</p>
             <ul className="setup-features">
               {FEATURES.map((f) => (
-                <li key={f.title}>
+                <li key={f.key}>
                   <span className="setup-feature-icon">
                     <Icon name={f.icon} size={18} />
                   </span>
                   <span>
-                    <strong>{f.title}</strong>
-                    <span className="setup-feature-text">{f.text}</span>
+                    <strong>{t(`setup.feature.${f.key}`)}</strong>
+                    <span className="setup-feature-text">{t(`setup.feature.${f.key}Text`)}</span>
                   </span>
                 </li>
               ))}
@@ -152,7 +186,7 @@ export default function SetupScreen({ existing, council, onDone, onCancel, onFor
             {returning ? (
               <>
                 <button className="btn btn-primary setup-cta" onClick={onEnter} autoFocus>
-                  Konseye gir <Icon name="chevron" size={16} />
+                  {t('setup.enter')} <Icon name="chevron" size={16} />
                 </button>
                 <div className="setup-connection">
                   <span className="setup-connection-dot" aria-hidden="true">
@@ -163,13 +197,13 @@ export default function SetupScreen({ existing, council, onDone, onCancel, onFor
                     {existing.model ? ` · ${existing.model}` : ''}
                   </span>
                   <button className="setup-link" onClick={() => setStep(1)}>
-                    Bağlantıyı değiştir
+                    {t('connection.change')}
                   </button>
                 </div>
               </>
             ) : (
               <button className="btn btn-primary setup-cta" onClick={() => setStep(1)} autoFocus>
-                Başlayalım <Icon name="chevron" size={16} />
+                {t('setup.start')} <Icon name="chevron" size={16} />
               </button>
             )}
           </div>
@@ -177,12 +211,10 @@ export default function SetupScreen({ existing, council, onDone, onCancel, onFor
 
         {step === 1 && (
           <form className="setup-body" onSubmit={connect}>
-            <h2>{editing ? 'Bağlantıyı değiştir' : 'API bağlantısı'}</h2>
-            <p className="setup-sub">
-              Konsey üyeleri bir yapay zekâ sağlayıcısı üzerinden çalışır. Sağlayıcınızı seçip API anahtarınızı girin.
-            </p>
+            <h2>{editing ? t('connection.change') : t('setup.connectionTitle')}</h2>
+            <p className="setup-sub">{t('setup.connectionText')}</p>
 
-            <div className="provider-grid" role="radiogroup" aria-label="Sağlayıcı">
+            <div className="provider-grid" role="radiogroup" aria-label={t('status.provider')}>
               {PROVIDERS.map((p) => (
                 <button
                   type="button"
@@ -192,15 +224,15 @@ export default function SetupScreen({ existing, council, onDone, onCancel, onFor
                   className={`provider-card ${provider === p.id ? 'active' : ''}`}
                   onClick={() => chooseProvider(p.id)}
                 >
-                  <span className="provider-name">{p.name}</span>
-                  <span className="provider-desc">{p.description}</span>
+                  <span className="provider-name">{p.nameKey ? t(p.nameKey) : p.name}</span>
+                  <span className="provider-desc">{t(p.descriptionKey)}</span>
                 </button>
               ))}
             </div>
 
             {provider === 'custom' && (
               <label className="setup-field">
-                <span>Sağlayıcı adresi</span>
+                <span>{t('setup.providerUrl')}</span>
                 <input
                   value={baseUrl}
                   onChange={(e) => setBaseUrl(e.target.value)}
@@ -211,7 +243,7 @@ export default function SetupScreen({ existing, council, onDone, onCancel, onFor
             )}
 
             <label className="setup-field">
-              <span>API anahtarı</span>
+              <span>{t('setup.apiKey')}</span>
               <div className="key-input">
                 <input
                   type={showKey ? 'text' : 'password'}
@@ -219,9 +251,9 @@ export default function SetupScreen({ existing, council, onDone, onCancel, onFor
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder={
                     editing && existing.key_hint
-                      ? `Kayıtlı anahtar ${existing.key_hint} (değiştirmek için yenisini girin)`
+                      ? t('setup.savedKey', { hint: existing.key_hint })
                       : envHint
-                        ? `Bilgisayarınızdaki anahtar ${envHint} (boş bırakırsanız o kullanılır)`
+                        ? t('setup.envKey', { hint: envHint })
                         : 'sk-...'
                   }
                   autoComplete="off"
@@ -232,15 +264,14 @@ export default function SetupScreen({ existing, council, onDone, onCancel, onFor
                   type="button"
                   className="icon-btn"
                   onClick={() => setShowKey((s) => !s)}
-                  aria-label={showKey ? 'Anahtarı gizle' : 'Anahtarı göster'}
-                  title={showKey ? 'Gizle' : 'Göster'}
+                  aria-label={showKey ? t('setup.hideKey') : t('setup.showKey')}
+                  title={showKey ? t('setup.hide') : t('setup.show')}
                 >
                   <Icon name={showKey ? 'eyeOff' : 'eye'} size={17} />
                 </button>
               </div>
               <span className="setup-hint">
-                <Icon name="lock" size={12} /> Anahtar yalnızca bu bilgisayarda, Windows şifrelemesiyle saklanır ve tarayıcıya
-                geri gönderilmez.
+                <Icon name="lock" size={12} /> {t('setup.keyPrivacy')}
               </span>
             </label>
 
@@ -250,27 +281,27 @@ export default function SetupScreen({ existing, council, onDone, onCancel, onFor
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
                 list="setup-models"
-                placeholder={provider === 'anthropic' ? 'Boş bırakın: Opus + Sonnet karışık konsey' : 'Model adı'}
+                placeholder={provider === 'anthropic' ? t('setup.modelAnthropic') : t('setup.modelName')}
               />
               <datalist id="setup-models">
                 {preset.models.map((m) => (
                   <option key={m} value={m} />
                 ))}
               </datalist>
-              <span className="setup-hint">Boş bırakılmazsa tüm üyeler bu modeli kullanır. Üyeleri sonra Ayarlar’dan ayrı ayrı değiştirebilirsiniz.</span>
+              <span className="setup-hint">{t('setup.modelHint')}</span>
             </label>
 
             <button type="button" className="setup-advanced-toggle" onClick={() => setAdvanced((a) => !a)} aria-expanded={advanced}>
-              <Icon name="chevron" size={14} className={advanced ? 'rotated' : ''} /> Gelişmiş: token limitleri
+              <Icon name="chevron" size={14} className={advanced ? 'rotated' : ''} /> {t('setup.advanced')}
             </button>
             {advanced && (
               <div className="setup-row">
                 <label className="setup-field">
-                  <span>Max tokens (üyeler)</span>
+                  <span>{t('setup.maxTokensMembers')}</span>
                   <input type="number" min={256} value={maxTokens} onChange={(e) => setMaxTokens(e.target.value)} placeholder={defaultTokens.split(' / ')[0]} />
                 </label>
                 <label className="setup-field">
-                  <span>Max tokens (Başkan)</span>
+                  <span>{t('setup.maxTokensChairman')}</span>
                   <input type="number" min={256} value={chairmanTokens} onChange={(e) => setChairmanTokens(e.target.value)} placeholder={defaultTokens.split(' / ')[1]} />
                 </label>
               </div>
@@ -280,7 +311,7 @@ export default function SetupScreen({ existing, council, onDone, onCancel, onFor
               <div className="setup-error" role="alert">
                 <Icon name="alert" size={16} />
                 <span>
-                  <strong>Bağlanılamadı.</strong> {error}
+                  <strong>{t('setup.failed')}</strong> {error}
                 </span>
               </div>
             )}
@@ -289,27 +320,27 @@ export default function SetupScreen({ existing, council, onDone, onCancel, onFor
               {editing ? (
                 <>
                   <button type="button" className="setup-forget" onClick={onForget}>
-                    Kayıtlı anahtarı sil
+                    {t('setup.forget')}
                   </button>
                   <span className="setup-spacer" />
                   <button type="button" className="btn btn-ghost" onClick={returning ? () => setStep(0) : onCancel}>
-                    İptal
+                    {t('common.cancel')}
                   </button>
                 </>
               ) : (
                 <button type="button" className="btn btn-ghost" onClick={() => setStep(0)}>
-                  Geri
+                  {t('common.back')}
                 </button>
               )}
               <button type="submit" className="btn btn-primary" disabled={!canConnect}>
                 {testing ? (
                   <>
-                    <span className="spinner tiny" /> Bağlantı test ediliyor…
+                    <span className="spinner tiny" /> {t('setup.testing')}
                   </>
                 ) : editing ? (
-                  'Test et ve kaydet'
+                  t('setup.testAndSave')
                 ) : (
-                  'Bağlan ve devam et'
+                  t('setup.connect')
                 )}
               </button>
             </div>
@@ -321,7 +352,7 @@ export default function SetupScreen({ existing, council, onDone, onCancel, onFor
             <span className="setup-done-icon">
               <Icon name="check" size={28} strokeWidth={2.6} />
             </span>
-            <h2>Bağlantı kuruldu</h2>
+            <h2>{t('setup.connected')}</h2>
             <p className="setup-sub">
               {result.provider}
               {result.model ? ` · ${result.model}` : ''}
@@ -339,9 +370,9 @@ export default function SetupScreen({ existing, council, onDone, onCancel, onFor
                 ))}
               </div>
             )}
-            <p className="setup-sub">Konseyi istediğiniz zaman Ayarlar’dan düzenleyebilirsiniz.</p>
+            <p className="setup-sub">{t('setup.editLater')}</p>
             <button className="btn btn-primary setup-cta" onClick={() => onDone(result)} autoFocus>
-              Konseye danış <Icon name="chevron" size={16} />
+              {t('setup.consult')} <Icon name="chevron" size={16} />
             </button>
           </div>
         )}

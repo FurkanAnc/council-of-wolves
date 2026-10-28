@@ -4,6 +4,8 @@
 
 // Same host the page was opened from (localhost -> 127.0.0.1, where the backend listens)
 const host = window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
+import { getLanguage, t } from './i18n';
+
 const API_BASE = import.meta.env.VITE_API_BASE || `http://${host}:8001`;
 
 async function errorMessage(response, fallback) {
@@ -15,12 +17,17 @@ async function errorMessage(response, fallback) {
   }
 }
 
+/** fetch with the UI language, so the backend localizes default member names. */
+function request(url, options = {}) {
+  return fetch(url, { ...options, headers: { ...(options.headers || {}), 'X-Council-Lang': getLanguage() } });
+}
+
 export const api = {
   /**
    * Get the council composition (members + chairman).
    */
   async getCouncil() {
-    const response = await fetch(`${API_BASE}/api/council`);
+    const response = await request(`${API_BASE}/api/council`);
     if (!response.ok) {
       throw new Error('Failed to load council');
     }
@@ -31,7 +38,7 @@ export const api = {
    * Saved connection (provider, model, limits, key hint; never the key).
    */
   async getSetup() {
-    const response = await fetch(`${API_BASE}/api/setup`);
+    const response = await request(`${API_BASE}/api/setup`);
     if (!response.ok) {
       throw new Error('Failed to load setup');
     }
@@ -42,7 +49,7 @@ export const api = {
    * Test a connection and save it if it works. The key only travels to the local backend.
    */
   async saveSetup(setup) {
-    const response = await fetch(`${API_BASE}/api/setup`, {
+    const response = await request(`${API_BASE}/api/setup`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -50,15 +57,15 @@ export const api = {
       body: JSON.stringify(setup),
     });
     if (!response.ok) {
-      throw new Error(await errorMessage(response, 'Bağlantı kaydedilemedi'));
+      throw new Error(await errorMessage(response, t('connection.saveFailed')));
     }
     return response.json();
   },
 
   async forgetSetup() {
-    const response = await fetch(`${API_BASE}/api/setup`, { method: 'DELETE' });
+    const response = await request(`${API_BASE}/api/setup`, { method: 'DELETE' });
     if (!response.ok) {
-      throw new Error(await errorMessage(response, 'Anahtar silinemedi'));
+      throw new Error(await errorMessage(response, t('connection.forgetFailed')));
     }
     return response.json();
   },
@@ -67,7 +74,7 @@ export const api = {
    * API connection status (cached by the backend unless refresh is true).
    */
   async getStatus(refresh = false) {
-    const response = await fetch(`${API_BASE}/api/status${refresh ? '?refresh=true' : ''}`);
+    const response = await request(`${API_BASE}/api/status${refresh ? '?refresh=true' : ''}`);
     if (!response.ok) {
       throw new Error('Failed to load status');
     }
@@ -78,7 +85,7 @@ export const api = {
    * Editable council settings (members, roles, chairman, discussion).
    */
   async getSettings() {
-    const response = await fetch(`${API_BASE}/api/settings`);
+    const response = await request(`${API_BASE}/api/settings`);
     if (!response.ok) {
       throw new Error(await errorMessage(response, 'Failed to load settings'));
     }
@@ -86,7 +93,7 @@ export const api = {
   },
 
   async saveSettings(settings) {
-    const response = await fetch(`${API_BASE}/api/settings`, {
+    const response = await request(`${API_BASE}/api/settings`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -100,7 +107,7 @@ export const api = {
   },
 
   async resetSettings() {
-    const response = await fetch(`${API_BASE}/api/settings`, { method: 'DELETE' });
+    const response = await request(`${API_BASE}/api/settings`, { method: 'DELETE' });
     if (!response.ok) {
       throw new Error(await errorMessage(response, 'Failed to reset settings'));
     }
@@ -111,7 +118,7 @@ export const api = {
    * List all conversations.
    */
   async listConversations() {
-    const response = await fetch(`${API_BASE}/api/conversations`);
+    const response = await request(`${API_BASE}/api/conversations`);
     if (!response.ok) {
       throw new Error('Failed to list conversations');
     }
@@ -122,7 +129,7 @@ export const api = {
    * Create a new conversation.
    */
   async createConversation() {
-    const response = await fetch(`${API_BASE}/api/conversations`, {
+    const response = await request(`${API_BASE}/api/conversations`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -139,7 +146,7 @@ export const api = {
    * Get a specific conversation.
    */
   async getConversation(conversationId) {
-    const response = await fetch(
+    const response = await request(
       `${API_BASE}/api/conversations/${conversationId}`
     );
     if (!response.ok) {
@@ -152,7 +159,7 @@ export const api = {
    * Rename a conversation.
    */
   async renameConversation(conversationId, title) {
-    const response = await fetch(`${API_BASE}/api/conversations/${conversationId}`, {
+    const response = await request(`${API_BASE}/api/conversations/${conversationId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -169,7 +176,7 @@ export const api = {
    * Delete a conversation.
    */
   async deleteConversation(conversationId) {
-    const response = await fetch(`${API_BASE}/api/conversations/${conversationId}`, {
+    const response = await request(`${API_BASE}/api/conversations/${conversationId}`, {
       method: 'DELETE',
     });
     if (!response.ok && response.status !== 404) {
@@ -181,7 +188,7 @@ export const api = {
    * Send a message in a conversation.
    */
   async sendMessage(conversationId, content) {
-    const response = await fetch(
+    const response = await request(
       `${API_BASE}/api/conversations/${conversationId}/message`,
       {
         method: 'POST',
@@ -207,7 +214,7 @@ export const api = {
    * @returns {Promise<void>}
    */
   async sendMessageStream(conversationId, content, onEvent, signal, retry = false) {
-    const response = await fetch(
+    const response = await request(
       `${API_BASE}/api/conversations/${conversationId}/message/stream`,
       {
         method: 'POST',

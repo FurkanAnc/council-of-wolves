@@ -26,9 +26,17 @@ class SettingsError(ValueError):
     """Invalid settings; the message is shown to the user."""
 
 
-def defaults() -> Dict[str, Any]:
-    """Default council; with a model chosen at setup, every member uses it."""
+def normalize_lang(lang: Any) -> str:
+    return "en" if str(lang or "").lower().startswith("en") else "tr"
+
+
+def defaults(lang: str = "tr") -> Dict[str, Any]:
+    """Default council in the UI language; with a model chosen at setup, every member uses it."""
     data = copy.deepcopy(config.DEFAULT_SETTINGS)
+    if normalize_lang(lang) == "en":
+        for member in data["members"]:
+            member.update(config.DEFAULT_TEXT_EN.get(member["id"], {}))
+        data["chairman"].update(config.DEFAULT_TEXT_EN["chairman"])
     model = connection.current()["model"]
     if model:
         for member in data["members"]:
@@ -44,13 +52,13 @@ def settings_path() -> str:
 _cache: Dict[str, Any] = {"mtime": None, "settings": None}
 
 
-def get_settings() -> Dict[str, Any]:
-    """Current settings: the saved file if valid, otherwise the defaults."""
+def get_settings(lang: str = "tr") -> Dict[str, Any]:
+    """Current settings: the saved file if valid, otherwise the defaults (in `lang`)."""
     path = settings_path()
     try:
         mtime = os.path.getmtime(path)
     except OSError:
-        return defaults()
+        return defaults(lang)
 
     if _cache["mtime"] == (path, mtime):
         return copy.deepcopy(_cache["settings"])
@@ -60,7 +68,7 @@ def get_settings() -> Dict[str, Any]:
             loaded = validate(json.load(f))
     except (OSError, ValueError) as e:
         print(f"Ignoring invalid settings file {path}: {e}", flush=True)
-        return defaults()
+        return defaults(lang)
 
     _cache.update(mtime=(path, mtime), settings=loaded)
     return copy.deepcopy(loaded)
@@ -78,13 +86,13 @@ def save_settings(data: Dict[str, Any]) -> Dict[str, Any]:
     return normalized
 
 
-def reset_settings() -> Dict[str, Any]:
+def reset_settings(lang: str = "tr") -> Dict[str, Any]:
     """Delete the saved settings so the defaults apply again."""
     try:
         os.remove(settings_path())
     except FileNotFoundError:
         pass
-    return defaults()
+    return defaults(lang)
 
 
 # ---------------------------------------------------------------- validation

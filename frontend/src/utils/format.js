@@ -3,6 +3,7 @@
  */
 
 import { memberLabel } from './labels';
+import { t, locale } from '../i18n';
 
 /** Backend timestamps are naive UTC ISO strings; parse them as UTC. */
 export function parseDate(iso) {
@@ -18,81 +19,82 @@ function startOfDay(date) {
   return d;
 }
 
-/** Sidebar group name for a conversation date. */
+/** Sidebar group key for a conversation date (translated as t(`group.${key}`)). */
 export function dateGroup(iso, now = new Date()) {
   const date = parseDate(iso);
-  if (!date) return 'Daha eski';
+  if (!date) return 'older';
   const days = Math.round((startOfDay(now) - startOfDay(date)) / 86400000);
-  if (days <= 0) return 'Bugün';
-  if (days === 1) return 'Dün';
-  if (days < 7) return 'Son 7 gün';
-  if (days < 30) return 'Son 30 gün';
-  return 'Daha eski';
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return 'week';
+  if (days < 30) return 'month';
+  return 'older';
 }
 
-export const GROUP_ORDER = ['Bugün', 'Dün', 'Son 7 gün', 'Son 30 gün', 'Daha eski'];
+export const GROUP_ORDER = ['today', 'yesterday', 'week', 'month', 'older'];
 
 /** Short time or date label for a conversation. */
 export function shortDate(iso, now = new Date()) {
   const date = parseDate(iso);
   if (!date) return '';
-  if (dateGroup(iso, now) === 'Bugün') {
-    return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  if (dateGroup(iso, now) === 'today') {
+    return date.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
   }
-  return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+  return date.toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
 }
 
 export function formatDuration(ms) {
   const total = Math.max(0, Math.floor(ms / 1000));
   const minutes = Math.floor(total / 60);
   const seconds = total % 60;
-  return minutes > 0 ? `${minutes} dk ${seconds} sn` : `${seconds} sn`;
+  return minutes > 0 ? t('time.minSec', { m: minutes, s: seconds }) : t('time.sec', { s: seconds });
 }
 
-/** 15234 -> "15,2k" (compact token counts) */
+/** 15234 -> "15,2k" / "15.2k" (compact token counts) */
 export function formatTokens(n) {
   if (!n) return '0';
   if (n < 1000) return String(n);
-  return `${(n / 1000).toFixed(n < 10000 ? 1 : 0).replace('.', ',')}k`;
+  const value = (n / 1000).toFixed(n < 10000 ? 1 : 0);
+  return `${locale() === 'tr-TR' ? value.replace('.', ',') : value}k`;
 }
 
 /** Whole conversation as a Markdown document. */
 export function conversationToMarkdown(conversation) {
-  const lines = [`# ${conversation.title || 'Kurtlar Konseyi sohbeti'}`, ''];
+  const lines = [`# ${conversation.title || t('export.defaultTitle')}`, ''];
   const created = parseDate(conversation.created_at);
   if (created) {
-    lines.push(`_${created.toLocaleString('tr-TR')}_`, '');
+    lines.push(`_${created.toLocaleString(locale())}_`, '');
   }
 
   for (const msg of conversation.messages || []) {
     if (msg.role === 'user') {
-      lines.push('---', '', '## Soru', '', msg.content, '');
+      lines.push('---', '', `## ${t('export.question')}`, '', msg.content, '');
       continue;
     }
     if (msg.error) {
-      lines.push(`> Hata: ${msg.error}`, '');
+      lines.push(`> ${t('export.error')}: ${msg.error}`, '');
       continue;
     }
     if (msg.stage3) {
-      lines.push(`## Konseyin cevabı (${memberLabel(msg.stage3)})`, '', msg.stage3.response, '');
+      lines.push(`## ${t('export.answer')} (${memberLabel(msg.stage3)})`, '', msg.stage3.response, '');
     }
     if (msg.metadata?.aggregate_rankings?.length) {
-      lines.push('### Genel sıralama', '');
+      lines.push(`### ${t('stage2.overall')}`, '');
       msg.metadata.aggregate_rankings.forEach((agg, i) => {
-        lines.push(`${i + 1}. ${memberLabel(agg)} (ortalama ${agg.average_rank.toFixed(2)})`);
+        lines.push(`${i + 1}. ${memberLabel(agg)} (${t('export.average')} ${agg.average_rank.toFixed(2)})`);
       });
       lines.push('');
     }
     if (msg.debate?.length) {
-      lines.push('### Konsey tartışması', '');
+      lines.push(`### ${t('debate.title')}`, '');
       msg.debate.forEach((round, r) => {
-        lines.push(`**${r + 1}. tur**`, '');
+        lines.push(`**${t('debate.round', { n: r + 1 })}**`, '');
         for (const m of round) lines.push(`- **${m.member_name}:** ${m.message.replace(/\n+/g, ' ')}`);
         lines.push('');
       });
     }
     if (msg.stage1?.length) {
-      lines.push('### Üye cevapları', '');
+      lines.push(`### ${t('stage1.title')}`, '');
       for (const resp of msg.stage1) {
         lines.push(`#### ${memberLabel(resp)}`, '', resp.response, '');
       }
@@ -115,12 +117,12 @@ export function downloadText(filename, text, type = 'text/markdown') {
 
 /** Safe file name from a conversation title. */
 export function fileNameFor(title) {
-  const base = (title || 'sohbet')
+  const base = (title || t('export.fileName'))
     .replace(/[\\/:*?"<>|]+/g, '')
     .trim()
     .replace(/\s+/g, '-')
     .slice(0, 60);
-  return `${base || 'sohbet'}.md`;
+  return `${base || t('export.fileName')}.md`;
 }
 
 export async function copyToClipboard(text) {
